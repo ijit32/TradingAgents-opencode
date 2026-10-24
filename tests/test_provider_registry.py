@@ -22,6 +22,9 @@ def test_registry_membership():
     assert not is_openai_compatible("anthropic")
     assert not is_openai_compatible("google")
     assert not is_openai_compatible("azure")
+    # OpenCode speaks four protocols, so it has its own router.
+    assert not is_openai_compatible("opencode")
+    assert not is_openai_compatible("opencode-go")
 
 
 @pytest.mark.unit

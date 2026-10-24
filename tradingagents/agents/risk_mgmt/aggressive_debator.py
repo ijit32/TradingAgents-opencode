@@ -7,29 +7,28 @@ from tradingagents.agents.context import (
 )
 
 
-def create_aggressive_debator(llm):
-    def aggressive_node(state) -> dict:
-        risk_debate_state = state["risk_debate_state"]
-        history = risk_debate_state.get("history", "")
-        aggressive_history = risk_debate_state.get("aggressive_history", "")
+def build_aggressive_prompt(state) -> str:
+    """The exact prompt the aggressive risk analyst is given, for graph and worker alike."""
+    risk_debate_state = state["risk_debate_state"]
+    history = risk_debate_state.get("history", "")
 
-        current_conservative_response = opponent_argument_or_opening(
-            risk_debate_state.get("current_conservative_response", ""), "conservative analyst"
-        )
-        current_neutral_response = opponent_argument_or_opening(
-            risk_debate_state.get("current_neutral_response", ""), "neutral analyst"
-        )
+    current_conservative_response = opponent_argument_or_opening(
+        risk_debate_state.get("current_conservative_response", ""), "conservative analyst"
+    )
+    current_neutral_response = opponent_argument_or_opening(
+        risk_debate_state.get("current_neutral_response", ""), "neutral analyst"
+    )
 
-        market_research_report = report_or_absent(state["market_report"], "market")
-        sentiment_report = report_or_absent(state["sentiment_report"], "sentiment")
-        news_report = report_or_absent(state["news_report"], "news")
-        fundamentals_report = report_or_absent(state["fundamentals_report"], "fundamentals")
-        instrument_context = get_instrument_context_from_state(state)
-        portfolio_context = get_portfolio_context_from_state(state)
+    market_research_report = report_or_absent(state["market_report"], "market")
+    sentiment_report = report_or_absent(state["sentiment_report"], "sentiment")
+    news_report = report_or_absent(state["news_report"], "news")
+    fundamentals_report = report_or_absent(state["fundamentals_report"], "fundamentals")
+    instrument_context = get_instrument_context_from_state(state)
+    portfolio_context = get_portfolio_context_from_state(state)
 
-        trader_decision = state["trader_investment_plan"]
+    trader_decision = state["trader_investment_plan"]
 
-        prompt = f"""As the Aggressive Risk Analyst, your role is to actively champion high-reward, high-risk opportunities, emphasizing bold strategies and competitive advantages. When evaluating the trader's decision or plan, focus intently on the potential upside, growth potential, and innovative benefits—even when these come with elevated risk. Use the provided market data and sentiment analysis to strengthen your arguments and challenge the opposing views. Specifically, respond directly to each point made by the conservative and neutral analysts, countering with data-driven rebuttals and persuasive reasoning. Highlight where their caution might miss critical opportunities or where their assumptions may be overly conservative. Here is the trader's decision:
+    return f"""As the Aggressive Risk Analyst, your role is to actively champion high-reward, high-risk opportunities, emphasizing bold strategies and competitive advantages. When evaluating the trader's decision or plan, focus intently on the potential upside, growth potential, and innovative benefits—even when these come with elevated risk. Use the provided market data and sentiment analysis to strengthen your arguments and challenge the opposing views. Specifically, respond directly to each point made by the conservative and neutral analysts, countering with data-driven rebuttals and persuasive reasoning. Highlight where their caution might miss critical opportunities or where their assumptions may be overly conservative. Here is the trader's decision:
 
 {trader_decision}
 
@@ -45,7 +44,14 @@ Here is the current conversation history: {history} Here are the last arguments 
 
 Engage actively by addressing any specific concerns raised, refuting the weaknesses in their logic, and asserting the benefits of risk-taking to outpace market norms. Maintain a focus on debating and persuading, not just presenting data. Challenge each counterpoint to underscore why a high-risk approach is optimal. Output conversationally as if you are speaking without any special formatting.""" + get_language_instruction()
 
-        response = llm.invoke(prompt)
+
+def create_aggressive_debator(llm):
+    def aggressive_node(state) -> dict:
+        risk_debate_state = state["risk_debate_state"]
+        history = risk_debate_state.get("history", "")
+        aggressive_history = risk_debate_state.get("aggressive_history", "")
+
+        response = llm.invoke(build_aggressive_prompt(state))
 
         argument = f"Aggressive Analyst: {response.content}"
 

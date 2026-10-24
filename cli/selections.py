@@ -40,6 +40,7 @@ from cli.prompts import (
 from tradingagents.default_config import DEFAULT_CONFIG
 from tradingagents.llm_clients.factory import REASONING_EFFORT_PROVIDERS
 from tradingagents.llm_clients.openai_client import check_endpoint
+from tradingagents.llm_clients.opencode_client import is_opencode_provider, opencode_protocol
 
 
 def get_user_selections(flags=None):
@@ -341,7 +342,10 @@ def _prompt_selections(prefs, flags):
             "Gemini thinking mode", "Step 8: Thinking Mode",
             "Configure Gemini thinking mode", ask_gemini_thinking_config,
         )
-    elif provider_lower in REASONING_EFFORT_PROVIDERS:
+    elif provider_lower in REASONING_EFFORT_PROVIDERS and (
+        not is_opencode_provider(provider_lower)
+        or opencode_protocol(provider_lower, selected_deep_thinker) == "responses"
+    ):
         reasoning_effort = thinking_value_or_prompt(
             "TRADINGAGENTS_OPENAI_REASONING_EFFORT", "openai_reasoning_effort",
             "Reasoning effort", "Step 8: Reasoning Effort",

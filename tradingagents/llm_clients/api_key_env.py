@@ -29,6 +29,10 @@ PROVIDER_API_KEY_ENV: dict[str, str | None] = {
     "minimax":    "MINIMAX_API_KEY",
     "minimax-cn": "MINIMAX_CN_API_KEY",
     "openrouter": "OPENROUTER_API_KEY",
+    # OpenCode Console and Go share one account key; the provider key selects
+    # the gateway root (https://opencode.ai/inference vs .../go).
+    "opencode":    "OPENCODE_API_KEY",
+    "opencode-go": "OPENCODE_API_KEY",
     # Additional hosted OpenAI-compatible providers (model is user-specified).
     # kimi -> Moonshot AI; nvidia -> NVIDIA NIM.
     "mistral":    "MISTRAL_API_KEY",

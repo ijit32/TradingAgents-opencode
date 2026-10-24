@@ -177,6 +177,46 @@ MODEL_OPTIONS: ProviderModeOptions = {
     "kimi": _KIMI_MODELS,
     "minimax": _MINIMAX_MODELS,
     "minimax-cn": _MINIMAX_MODELS,
+    # OpenCode Console: pay-as-you-go. Models are served over four protocols;
+    # the client routes each ID. "Custom model ID" covers the long tail (130
+    # models at the Oct 2026 catalog snapshot).
+    #
+    # The `*-free` IDs are deliberately absent: the Console free tier only
+    # answers OpenCode's own in-process requests, so a client using an API key
+    # gets `403 FreeTierError`. They are reachable from the OpenCode plugin
+    # (`.opencode/plugins/tradingagents`), which is where they are documented.
+    "opencode": {
+        "quick": [
+            ("Kimi K2.6 - 256K ctx, thinking modes", "kimi-k2.6"),
+            ("Qwen3.8 Flash - Fast, 1M ctx", "qwen3.8-flash"),
+            ("Custom model ID", "custom"),
+        ],
+        "deep": [
+            ("GPT-6 Sol - Complex reasoning and analysis", "gpt-6-sol"),
+            ("Claude Opus 5.5 - Frontier agentic work", "claude-opus-5-5"),
+            ("Gemini 3.8 Flash - Most capable Flash, 1M ctx", "gemini-3.8-flash"),
+            ("DeepSeek V4 Pro - Flagship", "deepseek-v4-pro"),
+            ("Custom model ID", "custom"),
+        ],
+    },
+    # OpenCode Go: subscription gateway. Same key, different root, smaller
+    # catalog; the model IDs are the ones the Go plan serves.
+    "opencode-go": {
+        "quick": [
+            ("DeepSeek V4.1 Flash - Fast, 1M ctx", "deepseek-v4.1-flash"),
+            ("GLM-5.3-Flash - Fast, cost-efficient", "glm-5.3-flash"),
+            ("MiniMax M3.1 Flash - Fast, 1M ctx", "minimax-m3.1-flash"),
+            ("Kimi K3 - Flagship, 1M ctx", "kimi-k3"),
+            ("Custom model ID", "custom"),
+        ],
+        "deep": [
+            ("GPT-6 Luna - Fast, high-volume reasoning", "gpt-6-luna"),
+            ("Claude Haiku 5.5 - Fast with strong reasoning", "claude-haiku-5-5"),
+            ("Gemini 4 Argon Contributor - 1M ctx", "gemini-4-argon-contributor"),
+            ("Qwen3.8 Max - Latest flagship", "qwen3.8-max"),
+            ("Custom model ID", "custom"),
+        ],
+    },
     # OpenRouter: fetched dynamically. Azure: any deployed model name.
     # Ollama display labels intentionally omit a "local" marker — the
     # endpoint is now configurable via OLLAMA_BASE_URL, so the same labels

@@ -299,6 +299,13 @@ def check_endpoint(provider: str, base_url: str | None) -> None:
     if spec is not None and spec.pinned_base_url and base_url and base_url != spec.base_url:
         raise ValueError(f"Provider '{provider}' only connects to {spec.base_url}; "
                          "unset backend_url / TRADINGAGENTS_LLM_BACKEND_URL for it.")
+    # OpenCode roots live with its router (it is not OpenAI-compatible); import
+    # lazily so this module stays free of the cross-protocol client.
+    from .opencode_client import pinned_root
+    root = pinned_root(provider)
+    if root and base_url and base_url.rstrip("/") != root:
+        raise ValueError(f"Provider '{provider}' only connects to {root}; "
+                         "unset backend_url / TRADINGAGENTS_LLM_BACKEND_URL for it.")
 
 
 def is_openai_compatible(provider: str) -> bool:

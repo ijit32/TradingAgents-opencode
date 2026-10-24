@@ -28,6 +28,27 @@ def test_an_analyst_brief_is_text_not_a_python_object(name):
     briefs = [node.value for node in ast.walk(tree)
               if isinstance(node, ast.Assign)
               and getattr(node.targets[0], "id", "") == "system_message"]
+    if not briefs:
+        # market_analyst assembles its brief per run (the output language is a
+        # run setting), so it has named constants rather than one assignment.
+        # Render it and check what the model actually receives is text.
+        from tradingagents.agents.analysts.market_analyst import (
+            build_market_analyst_messages,
+        )
+        from tradingagents.dataflows.config import run_config
+
+        state = {
+            "company_of_interest": "NVDA",
+            "asset_type": "stock",
+            "trade_date": "2026-08-14",
+            "messages": [],
+        }
+        with run_config({"output_language": "English"}):
+            brief = build_market_analyst_messages(state)[0].content
+        assert isinstance(brief, str)
+        assert "trading assistant" in brief
+        assert not brief.startswith(("(", "['", '("'))
+        return
     assert briefs, f"{name} has no system_message"
     for brief in briefs:
         assert not isinstance(brief, ast.Tuple), "the brief is a tuple, not text"

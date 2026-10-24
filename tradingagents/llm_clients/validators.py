@@ -8,6 +8,9 @@ from .model_catalog import get_known_models
 _ANY_MODEL_PROVIDERS = (
     "ollama", "openrouter", "openai_compatible",
     "mistral", "kimi", "groq", "nvidia", "bedrock", "chatgpt",
+    # OpenCode's gateway catalog changes often; any model ID is accepted and
+    # the client routes it to the matching protocol.
+    "opencode", "opencode-go",
 )
 
 VALID_MODELS = {

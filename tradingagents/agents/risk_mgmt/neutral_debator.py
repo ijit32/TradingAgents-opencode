@@ -7,29 +7,28 @@ from tradingagents.agents.context import (
 )
 
 
-def create_neutral_debator(llm):
-    def neutral_node(state) -> dict:
-        risk_debate_state = state["risk_debate_state"]
-        history = risk_debate_state.get("history", "")
-        neutral_history = risk_debate_state.get("neutral_history", "")
+def build_neutral_prompt(state) -> str:
+    """The exact prompt the neutral risk analyst is given, for graph and worker alike."""
+    risk_debate_state = state["risk_debate_state"]
+    history = risk_debate_state.get("history", "")
 
-        current_aggressive_response = opponent_argument_or_opening(
-            risk_debate_state.get("current_aggressive_response", ""), "aggressive analyst"
-        )
-        current_conservative_response = opponent_argument_or_opening(
-            risk_debate_state.get("current_conservative_response", ""), "conservative analyst"
-        )
+    current_aggressive_response = opponent_argument_or_opening(
+        risk_debate_state.get("current_aggressive_response", ""), "aggressive analyst"
+    )
+    current_conservative_response = opponent_argument_or_opening(
+        risk_debate_state.get("current_conservative_response", ""), "conservative analyst"
+    )
 
-        market_research_report = report_or_absent(state["market_report"], "market")
-        sentiment_report = report_or_absent(state["sentiment_report"], "sentiment")
-        news_report = report_or_absent(state["news_report"], "news")
-        fundamentals_report = report_or_absent(state["fundamentals_report"], "fundamentals")
-        instrument_context = get_instrument_context_from_state(state)
-        portfolio_context = get_portfolio_context_from_state(state)
+    market_research_report = report_or_absent(state["market_report"], "market")
+    sentiment_report = report_or_absent(state["sentiment_report"], "sentiment")
+    news_report = report_or_absent(state["news_report"], "news")
+    fundamentals_report = report_or_absent(state["fundamentals_report"], "fundamentals")
+    instrument_context = get_instrument_context_from_state(state)
+    portfolio_context = get_portfolio_context_from_state(state)
 
-        trader_decision = state["trader_investment_plan"]
+    trader_decision = state["trader_investment_plan"]
 
-        prompt = f"""As the Neutral Risk Analyst, your role is to provide a balanced perspective, weighing both the potential benefits and risks of the trader's decision or plan. You prioritize a well-rounded approach, evaluating the upsides and downsides while factoring in broader market trends, potential economic shifts, and diversification strategies.Here is the trader's decision:
+    return f"""As the Neutral Risk Analyst, your role is to provide a balanced perspective, weighing both the potential benefits and risks of the trader's decision or plan. You prioritize a well-rounded approach, evaluating the upsides and downsides while factoring in broader market trends, potential economic shifts, and diversification strategies.Here is the trader's decision:
 
 {trader_decision}
 
@@ -45,7 +44,14 @@ Here is the current conversation history: {history} Here is the last response fr
 
 Engage actively by analyzing both sides critically, addressing weaknesses in the aggressive and conservative arguments to advocate for a more balanced approach. Challenge each of their points to illustrate why a moderate risk strategy might offer the best of both worlds, providing growth potential while safeguarding against extreme volatility. Focus on debating rather than simply presenting data, aiming to show that a balanced view can lead to the most reliable outcomes. Output conversationally as if you are speaking without any special formatting.""" + get_language_instruction()
 
-        response = llm.invoke(prompt)
+
+def create_neutral_debator(llm):
+    def neutral_node(state) -> dict:
+        risk_debate_state = state["risk_debate_state"]
+        history = risk_debate_state.get("history", "")
+        neutral_history = risk_debate_state.get("neutral_history", "")
+
+        response = llm.invoke(build_neutral_prompt(state))
 
         argument = f"Neutral Analyst: {response.content}"
 

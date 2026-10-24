@@ -6,29 +6,28 @@ from tradingagents.agents.context import (
 )
 
 
-def create_bull_researcher(llm):
-    def bull_node(state) -> dict:
-        investment_debate_state = state["investment_debate_state"]
-        history = investment_debate_state.get("history", "")
-        bull_history = investment_debate_state.get("bull_history", "")
+def build_bull_researcher_prompt(state) -> str:
+    """The exact prompt the bull researcher is given, for graph and worker alike."""
+    investment_debate_state = state["investment_debate_state"]
+    history = investment_debate_state.get("history", "")
 
-        current_response = opponent_argument_or_opening(
-            investment_debate_state.get("current_response", ""), "bear analyst"
-        )
-        market_research_report = report_or_absent(state["market_report"], "market")
-        sentiment_report = report_or_absent(state["sentiment_report"], "sentiment")
-        news_report = report_or_absent(state["news_report"], "news")
-        fundamentals_report = report_or_absent(state["fundamentals_report"], "fundamentals")
-        instrument_context = get_instrument_context_from_state(state)
-        asset_type = state.get("asset_type", "stock")
-        target_label = "stock" if asset_type == "stock" else "asset"
-        fundamentals_label = (
-            "Company fundamentals report"
-            if asset_type == "stock"
-            else "Asset fundamentals report (may be unavailable for crypto)"
-        )
+    current_response = opponent_argument_or_opening(
+        investment_debate_state.get("current_response", ""), "bear analyst"
+    )
+    market_research_report = report_or_absent(state["market_report"], "market")
+    sentiment_report = report_or_absent(state["sentiment_report"], "sentiment")
+    news_report = report_or_absent(state["news_report"], "news")
+    fundamentals_report = report_or_absent(state["fundamentals_report"], "fundamentals")
+    instrument_context = get_instrument_context_from_state(state)
+    asset_type = state.get("asset_type", "stock")
+    target_label = "stock" if asset_type == "stock" else "asset"
+    fundamentals_label = (
+        "Company fundamentals report"
+        if asset_type == "stock"
+        else "Asset fundamentals report (may be unavailable for crypto)"
+    )
 
-        prompt = f"""You are a Bull Analyst advocating for investing in the {target_label}. Your task is to build a strong, evidence-based case emphasizing growth potential, competitive advantages, and positive market indicators. Leverage the provided research and data to address concerns and counter bearish arguments effectively.
+    return f"""You are a Bull Analyst advocating for investing in the {target_label}. Your task is to build a strong, evidence-based case emphasizing growth potential, competitive advantages, and positive market indicators. Leverage the provided research and data to address concerns and counter bearish arguments effectively.
 
 Key points to focus on:
 - Growth Potential: Highlight the company's market opportunities, revenue projections, and scalability.
@@ -48,7 +47,14 @@ Last bear argument: {current_response}
 Use this information to deliver a compelling bull argument, refute the bear's concerns, and engage in a dynamic debate that demonstrates the strengths of the bull position.
 """ + get_language_instruction()
 
-        response = llm.invoke(prompt)
+
+def create_bull_researcher(llm):
+    def bull_node(state) -> dict:
+        investment_debate_state = state["investment_debate_state"]
+        history = investment_debate_state.get("history", "")
+        bull_history = investment_debate_state.get("bull_history", "")
+
+        response = llm.invoke(build_bull_researcher_prompt(state))
 
         argument = f"Bull Analyst: {response.content}"
 

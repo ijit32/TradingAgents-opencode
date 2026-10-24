@@ -1,3 +1,4 @@
+from langchain_core.messages import BaseMessage
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 
 from tradingagents.agents.analysts.turn import take_turn
@@ -11,15 +12,67 @@ TOOLS = (
     get_verified_market_snapshot,
 )
 
+# The indicators the OpenCode worker pre-fetches. The graph leaves the choice to
+# the model; a tool-free run has to fix it up front, so it takes one from each
+# category plus the two trend averages that context needs.
+MARKET_INDICATORS = (
+    "close_50_sma",
+    "close_200_sma",
+    "close_10_ema",
+    "macd",
+    "macds",
+    "rsi",
+    "boll_ub",
+    "atr",
+)
 
-def create_market_analyst(llm):
+_TOOL_CALL_PARAGRAPH = (
+    " When you tool call, please use the exact name of the indicators provided above as they "
+    "are defined parameters, otherwise your call will fail. Please make sure to call "
+    "get_stock_data first to retrieve the CSV that is needed to generate indicators. Then use "
+    "get_indicators with the specific indicator names."
+)
 
-    def market_analyst_node(state):
-        current_date = state["trade_date"]
-        instrument_context = get_instrument_context_from_state(state)
+_SNAPSHOT_PARAGRAPH = (
+    " Before writing the final report, call get_verified_market_snapshot for this ticker and "
+    "the current date, and treat it as the source of truth for any exact OHLCV, price-level, or "
+    "indicator-value claim. If another tool's output conflicts with the verified snapshot, flag "
+    "the discrepancy rather than inventing a reconciled number. Do not claim historical "
+    "validation, support/resistance bounces, or exact percentage moves unless they are directly "
+    "supported by tool output with concrete dates and prices."
+)
 
-        system_message = (
-            """You are a trading assistant tasked with analyzing financial markets. Your role is to select the **most relevant indicators** for a given market condition or trading strategy from the following list. The goal is to choose up to **8 indicators** that provide complementary insights without redundancy. Categories and each category's indicators are:
+_OUTER_WITH_TOOLS = (
+    "You are a helpful AI assistant, collaborating with other assistants."
+    " Use the provided tools to progress towards answering the question."
+    " If you are unable to fully answer, that's OK; another assistant with different tools"
+    " will help where you left off. Execute what you can to make progress."
+    " Report what your tools support; another agent decides the trade."
+    " You have access to the following tools: {tool_names}."
+    " Today's date is {current_date}; treat it as 'now' for all analysis and tool-call date ranges. {instrument_context}\n"
+    "{system_message}"
+)
+
+_OUTER_WITHOUT_TOOLS = (
+    "You are a helpful AI assistant, collaborating with other assistants."
+    " You have no tools in this run: the market data for this ticker has already been fetched"
+    " and is included below as a data pack."
+    " If the pack does not answer something, say so rather than filling the gap from memory."
+    " Report what the pack supports; another agent decides the trade."
+    " Today's date is {current_date}; treat it as 'now' for all analysis."
+    " {instrument_context}\n"
+    "{system_message}"
+)
+
+_DATA_PACK_HEADER = (
+    "# Pre-fetched market data pack\n\n"
+    "The plugin ran get_stock_data, get_indicators, and get_verified_market_snapshot before "
+    "this call. Treat the sections below as that tools' complete output: you cannot call them "
+    "again, and you must cite only figures that appear in it. If a figure you want is missing, "
+    "say it is missing instead of estimating it.\n\n"
+)
+
+_INDICATOR_GUIDE = """You are a trading assistant tasked with analyzing financial markets. Your role is to select the **most relevant indicators** for a given market condition or trading strategy from the following list. The goal is to choose up to **8 indicators** that provide complementary insights without redundancy. Categories and each category's indicators are:
 
 Moving Averages:
 - close_50_sma: 50 SMA: A medium-term trend indicator. Usage: Identify trend direction and serve as dynamic support/resistance. Tips: It lags price; combine with faster indicators for timely signals.
@@ -43,36 +96,74 @@ Volatility Indicators:
 Volume-Based Indicators:
 - vwma: VWMA: A moving average weighted by volume. Usage: Confirm trends by integrating price action with volume data. Tips: Watch for skewed results from volume spikes; use in combination with other volume analyses.
 
-- Select indicators that provide diverse and complementary information. Avoid redundancy (e.g., do not select both rsi and stochrsi). Also briefly explain why they are suitable for the given market context. When you tool call, please use the exact name of the indicators provided above as they are defined parameters, otherwise your call will fail. Please make sure to call get_stock_data first to retrieve the CSV that is needed to generate indicators. Then use get_indicators with the specific indicator names.
+- Select indicators that provide diverse and complementary information. Avoid redundancy (e.g., do not select both rsi and stochrsi). Also briefly explain why they are suitable for the given market context."""
 
-Before writing the final report, call get_verified_market_snapshot for this ticker and the current date, and treat it as the source of truth for any exact OHLCV, price-level, or indicator-value claim. If another tool's output conflicts with the verified snapshot, flag the discrepancy rather than inventing a reconciled number. Do not claim historical validation, support/resistance bounces, or exact percentage moves unless they are directly supported by tool output with concrete dates and prices.
+_REPORT_INSTRUCTIONS = (
+    "Write a very detailed and nuanced report of the trends you observe. Provide specific, "
+    "actionable insights with supporting evidence to help traders make informed decisions."
+    + " Make sure to append a Markdown table at the end of the report to organize key points in "
+    "the report, organized and easy to read."
+)
 
-Write a very detailed and nuanced report of the trends you observe. Provide specific, actionable insights with supporting evidence to help traders make informed decisions."""
-            + """ Make sure to append a Markdown table at the end of the report to organize key points in the report, organized and easy to read."""
-            + get_language_instruction()
-        )
 
-        prompt = ChatPromptTemplate.from_messages(
-            [
-                (
-                    "system",
-                    "You are a helpful AI assistant, collaborating with other assistants."
-                    " Use the provided tools to progress towards answering the question."
-                    " If you are unable to fully answer, that's OK; another assistant with different tools"
-                    " will help where you left off. Execute what you can to make progress."
-                    " Report what your tools support; another agent decides the trade."
-                    " You have access to the following tools: {tool_names}."
-                    " Today's date is {current_date}; treat it as 'now' for all analysis and tool-call date ranges. {instrument_context}\n"
-                    "{system_message}",
-                ),
-                MessagesPlaceholder(variable_name="messages"),
-            ]
-        )
+def _report_instructions() -> str:
+    """The closing instructions, localized per the active run config.
 
-        prompt = prompt.partial(system_message=system_message)
-        prompt = prompt.partial(tool_names=", ".join([tool.name for tool in TOOLS]))
-        prompt = prompt.partial(current_date=current_date)
-        prompt = prompt.partial(instrument_context=instrument_context)
+    Read at call time, not import time: the output language is per run, and the
+    CLI can change it between runs in one process.
+    """
+    return _REPORT_INSTRUCTIONS + get_language_instruction()
+
+
+def _system_body(data_pack: str | None) -> str:
+    """The analyst instructions, with the tool paragraphs only when tools exist.
+
+    A tool-free run keeps the indicator guide (it explains what the pack holds)
+    but drops the two paragraphs that tell the model to call tools, and appends
+    the pack itself.
+    """
+    body = _INDICATOR_GUIDE
+    instructions = _report_instructions()
+    if data_pack is None:
+        return body + _TOOL_CALL_PARAGRAPH + _SNAPSHOT_PARAGRAPH + instructions
+    return body + " " + instructions + "\n\n" + _DATA_PACK_HEADER + data_pack
+
+
+def _market_prompt(state, data_pack: str | None = None) -> ChatPromptTemplate:
+    """The prompt the market analyst runs on, with the rendered system message applied.
+
+    ``data_pack`` switches it to the tool-free form the OpenCode worker uses.
+    """
+    prompt = ChatPromptTemplate.from_messages(
+        [
+            (
+                "system",
+                _OUTER_WITHOUT_TOOLS if data_pack is not None else _OUTER_WITH_TOOLS,
+            ),
+            MessagesPlaceholder(variable_name="messages"),
+        ]
+    )
+    return prompt.partial(
+        system_message=_system_body(data_pack),
+        current_date=state["trade_date"],
+        instrument_context=get_instrument_context_from_state(state),
+        tool_names=", ".join(tool.name for tool in TOOLS),
+    )
+
+
+def build_market_analyst_messages(state, data_pack: str | None = None) -> list[BaseMessage]:
+    """The exact messages the market analyst is given, for graph and worker alike.
+
+    With ``data_pack=None`` this is what the graph sends; with a pack, the same
+    prompt plus the pre-fetched data and without the tool-call instructions.
+    """
+    return _market_prompt(state, data_pack).format_messages(messages=list(state.get("messages") or []))
+
+
+def create_market_analyst(llm):
+
+    def market_analyst_node(state):
+        prompt = _market_prompt(state)
 
         result, report = take_turn(prompt, llm, TOOLS, state["messages"])
 

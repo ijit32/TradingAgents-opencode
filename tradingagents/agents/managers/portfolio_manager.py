@@ -20,26 +20,23 @@ from tradingagents.agents.schemas import PortfolioDecision, render_pm_decision
 from tradingagents.agents.structured import NO_EXTERNAL_TOOLS, bind_structured, invoke_structured
 
 
-def create_portfolio_manager(llm):
-    structured_llm = bind_structured(llm, PortfolioDecision, "Portfolio Manager")
+def build_portfolio_manager_prompt(state) -> str:
+    """The exact prompt the portfolio manager is given, for graph and worker alike."""
+    instrument_context = get_instrument_context_from_state(state)
+    portfolio_context = get_portfolio_context_from_state(state)
 
-    def portfolio_manager_node(state) -> dict:
-        instrument_context = get_instrument_context_from_state(state)
-        portfolio_context = get_portfolio_context_from_state(state)
+    history = state["risk_debate_state"]["history"]
+    research_plan = state["investment_plan"]
+    trader_plan = state["trader_investment_plan"]
 
-        history = state["risk_debate_state"]["history"]
-        risk_debate_state = state["risk_debate_state"]
-        research_plan = state["investment_plan"]
-        trader_plan = state["trader_investment_plan"]
+    past_context = state.get("past_context", "")
+    lessons_line = (
+        f"- Lessons from prior decisions and outcomes:\n{past_context}\n"
+        if past_context
+        else ""
+    )
 
-        past_context = state.get("past_context", "")
-        lessons_line = (
-            f"- Lessons from prior decisions and outcomes:\n{past_context}\n"
-            if past_context
-            else ""
-        )
-
-        prompt = f"""As the Portfolio Manager, synthesize the risk analysts' debate and deliver the final trading decision.
+    return f"""As the Portfolio Manager, synthesize the risk analysts' debate and deliver the final trading decision.
 
 {instrument_context}
 
@@ -74,6 +71,15 @@ Write these sections, in this order, starting with the rating on its own line:
 - **Investment Thesis**: the evidence that decided it, and what would change it
 
 {NO_EXTERNAL_TOOLS}{get_language_instruction()}"""
+
+
+def create_portfolio_manager(llm):
+    structured_llm = bind_structured(llm, PortfolioDecision, "Portfolio Manager")
+
+    def portfolio_manager_node(state) -> dict:
+        risk_debate_state = state["risk_debate_state"]
+
+        prompt = build_portfolio_manager_prompt(state)
 
         # The typed rating is the decision; the rendered text only carries it.
         # Read back from text, a rating the thesis quotes could replace it.

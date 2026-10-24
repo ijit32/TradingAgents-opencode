@@ -106,6 +106,10 @@ _BY_ID: dict[str, ModelCapabilities] = {
     "MiniMax-M2.1": _MINIMAX_THINKING,
     "MiniMax-M2.1-highspeed": _MINIMAX_THINKING,
     "MiniMax-M2": _MINIMAX_THINKING,
+    # OpenCode's gateway names the same models in lowercase.
+    "minimax-m2.1": _MINIMAX_THINKING,
+    "minimax-m2.5": _MINIMAX_THINKING,
+    "minimax-m2.7": _MINIMAX_THINKING,
 }
 
 # Forward-compat patterns. New ``deepseek-v5-*`` / ``deepseek-reasoner-*``

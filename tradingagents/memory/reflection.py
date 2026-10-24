@@ -3,6 +3,56 @@
 from typing import Any
 
 
+def reflection_system_prompt(holding_days: int) -> str:
+    """The reflection system prompt, for any caller that owns its own LLM call.
+
+    Concise by design: 2-4 sentences of plain prose, compact enough to be
+    re-injected into future agent prompts without bloating the context window.
+    The window is named because it bounds what the outcome can show: a thesis
+    written for months is not disproved by a week, and a lesson that ignores
+    the difference is read by later runs as an established failure.
+    """
+    return (
+        "You are a trading analyst reviewing your own past decision now that the outcome is known.\n"
+        f"The outcome covers {holding_days} trading days from the first close after the analysis date, "
+        "which may be shorter than the horizon the decision was written for.\n"
+        "Write exactly 2-4 sentences of plain prose (no bullets, no headers, no markdown).\n\n"
+        "Cover in order:\n"
+        f"1. What the {holding_days}-day alpha shows about the directional call (cite the figure), "
+        "and say so plainly if the window is too short to judge the thesis.\n"
+        "2. Which part of the investment thesis this window supports or undercuts.\n"
+        "3. One concrete lesson to apply to the next similar analysis.\n\n"
+        "Be specific and terse. Your output will be stored verbatim in a memory log "
+        "and re-read by future analysts, so every word must earn its place."
+    )
+
+
+def build_reflection_prompt(
+    final_decision: str,
+    raw_return: float,
+    alpha_return: float,
+    benchmark_name: str = "SPY",
+    holding_days: int = 5,
+) -> list[tuple[str, str]]:
+    """The reflection messages, exactly as the graph sends them.
+
+    Extracted so an orchestrator that owns the model call (the OpenCode worker)
+    renders the same prompt the graph would: if the two drift, a lesson written
+    through one path stops being comparable with the other.
+    """
+    return [
+        ("system", reflection_system_prompt(holding_days)),
+        (
+            "human",
+            (
+                f"Raw return over {holding_days} trading days: {raw_return:+.1%}\n"
+                f"Alpha vs {benchmark_name}: {alpha_return:+.1%}\n\n"
+                f"Final Decision:\n{final_decision}"
+            ),
+        ),
+    ]
+
+
 class Reflector:
     """Handles reflection on trading decisions."""
 
@@ -11,27 +61,8 @@ class Reflector:
         self.quick_thinking_llm = quick_thinking_llm
 
     def _system_prompt(self, holding_days: int) -> str:
-        """Concise prompt for reflect_on_final_decision (settled memory log entries).
-
-        Produces 2-4 sentences of plain prose, compact enough to be re-injected
-        into future agent prompts without bloating the context window. The
-        window is named because it bounds what the outcome can show: a thesis
-        written for months is not disproved by a week, and a lesson that ignores
-        the difference is read by later runs as an established failure.
-        """
-        return (
-            "You are a trading analyst reviewing your own past decision now that the outcome is known.\n"
-            f"The outcome covers {holding_days} trading days from the first close after the analysis date, "
-            "which may be shorter than the horizon the decision was written for.\n"
-            "Write exactly 2-4 sentences of plain prose (no bullets, no headers, no markdown).\n\n"
-            "Cover in order:\n"
-            f"1. What the {holding_days}-day alpha shows about the directional call (cite the figure), "
-            "and say so plainly if the window is too short to judge the thesis.\n"
-            "2. Which part of the investment thesis this window supports or undercuts.\n"
-            "3. One concrete lesson to apply to the next similar analysis.\n\n"
-            "Be specific and terse. Your output will be stored verbatim in a memory log "
-            "and re-read by future analysts, so every word must earn its place."
-        )
+        """Concise prompt for reflect_on_final_decision (settled memory log entries)."""
+        return reflection_system_prompt(holding_days)
 
     def reflect_on_final_decision(
         self,
@@ -49,15 +80,7 @@ class Reflector:
         for US tickers, ``"^N225"`` for ``.T`` listings); defaults to SPY for
         callers that haven't been updated to thread the benchmark through.
         """
-        messages = [
-            ("system", self._system_prompt(holding_days)),
-            (
-                "human",
-                (
-                    f"Raw return over {holding_days} trading days: {raw_return:+.1%}\n"
-                    f"Alpha vs {benchmark_name}: {alpha_return:+.1%}\n\n"
-                    f"Final Decision:\n{final_decision}"
-                ),
-            ),
-        ]
+        messages = build_reflection_prompt(
+            final_decision, raw_return, alpha_return, benchmark_name, holding_days
+        )
         return self.quick_thinking_llm.invoke(messages).content

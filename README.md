@@ -173,6 +173,7 @@ export ZHIPU_CN_API_KEY=...        # GLM via BigModel (China, open.bigmodel.cn)
 export MINIMAX_API_KEY=...         # MiniMax (global, api.minimax.io)
 export MINIMAX_CN_API_KEY=...      # MiniMax (China, api.minimaxi.com)
 export OPENROUTER_API_KEY=...      # OpenRouter
+export OPENCODE_API_KEY=...        # OpenCode Console and OpenCode Go
 export MISTRAL_API_KEY=...         # Mistral
 export MOONSHOT_API_KEY=...        # Kimi (Moonshot)
 export GROQ_API_KEY=...            # Groq
@@ -189,6 +190,8 @@ To run on your ChatGPT Plus or Pro plan instead of an API key, choose "Subscript
 For AWS Bedrock, install the extra with `pip install ".[bedrock]"`, set `llm_provider: "bedrock"`, configure AWS credentials (environment variables, `~/.aws/credentials`, or an IAM role) and `AWS_DEFAULT_REGION`, and use a Bedrock model ID, e.g. `us.anthropic.claude-opus-5-5`.
 
 For local models, configure Ollama with `llm_provider: "ollama"`. The default endpoint is `http://localhost:11434/v1`; set `OLLAMA_BASE_URL` to point at a remote `ollama-serve`. Pull models with `ollama pull <name>`, and pick "Custom model ID" in the CLI for any model not listed by default.
+
+For OpenCode, choose "OpenCode (Console)" or "OpenCode Go (subscription)" in the provider menu, or set `llm_provider: "opencode"` / `"opencode-go"`. Both use `OPENCODE_API_KEY` from your [OpenCode Console](https://opencode.ai/console). The gateway serves its catalog over Chat Completions, OpenAI Responses, Anthropic Messages and Google Gemini; TradingAgents routes each model ID to the matching protocol, so GPT, Claude, Gemini and the open models all work through one provider. The endpoint is pinned to the gateway root, and any model ID the catalog serves is accepted — pick "Custom model ID" for the long tail. The gateway catalog changes frequently; the picker lists a current shortlist. The `*-free` IDs are not offered here: the Console free tier only answers OpenCode's own requests, so a client using an API key is refused. Free models are reachable through the OpenCode plugin in `.opencode/plugins/tradingagents` instead; otherwise use a paid model or Go.
 
 For any other OpenAI-compatible server (vLLM, LM Studio, llama.cpp, or a custom relay), use `llm_provider: "openai_compatible"` and set the endpoint via `backend_url` (or `TRADINGAGENTS_LLM_BACKEND_URL`), e.g. `http://localhost:8000/v1` for vLLM or `http://localhost:1234/v1` for LM Studio. The model is whatever your server serves. No key is needed for local servers; set `OPENAI_COMPATIBLE_API_KEY` when the endpoint requires one.
 
@@ -248,7 +251,7 @@ An interface will appear showing results as they load, letting you track the age
 
 ### Implementation Details
 
-We built TradingAgents with LangGraph to ensure flexibility and modularity. The framework supports multiple LLM providers: OpenAI, Google, Anthropic, xAI, DeepSeek, Qwen (Alibaba DashScope, international and China endpoints), GLM (Zhipu), MiniMax (global + China), OpenRouter, Ollama for local models, Azure OpenAI for enterprise, and your own ChatGPT plan.
+We built TradingAgents with LangGraph to ensure flexibility and modularity. The framework supports multiple LLM providers: OpenAI, Google, Anthropic, xAI, DeepSeek, Qwen (Alibaba DashScope, international and China endpoints), GLM (Zhipu), MiniMax (global + China), OpenRouter, OpenCode (Console and Go), Ollama for local models, Azure OpenAI for enterprise, and your own ChatGPT plan.
 
 ### Python Usage
 
@@ -275,7 +278,7 @@ from tradingagents.graph.trading_graph import TradingAgentsGraph
 from tradingagents.default_config import DEFAULT_CONFIG
 
 config = DEFAULT_CONFIG.copy()
-config["llm_provider"] = "openai"        # e.g. openai, google, anthropic, deepseek, groq, ollama; openai_compatible covers any OpenAI-compatible endpoint (vLLM, LM Studio, llama.cpp, ...)
+config["llm_provider"] = "openai"        # e.g. openai, google, anthropic, deepseek, groq, opencode, ollama; openai_compatible covers any OpenAI-compatible endpoint (vLLM, LM Studio, llama.cpp, ...)
 config["deep_think_llm"] = "gpt-6-sol"    # Model for complex reasoning
 config["quick_think_llm"] = "gpt-6-luna"   # Model for quick tasks
 config["max_debate_rounds"] = 2

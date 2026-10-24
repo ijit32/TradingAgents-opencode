@@ -14,8 +14,13 @@ import pytest
 from pydantic import ValidationError
 
 from tradingagents.agents.analysts.sentiment_analyst import create_sentiment_analyst
-from tradingagents.agents.managers.portfolio_manager import create_portfolio_manager
-from tradingagents.agents.managers.research_manager import create_research_manager
+from tradingagents.agents.managers.portfolio_manager import (
+    build_portfolio_manager_prompt,
+)
+from tradingagents.agents.managers.research_manager import (
+    build_research_manager_prompt,
+    create_research_manager,
+)
 from tradingagents.agents.schemas import (
     PortfolioDecision,
     PortfolioRating,
@@ -492,8 +497,8 @@ class TestSentimentAnalystAgent:
 @pytest.mark.parametrize("source", [
     pytest.param(lambda: ResearchPlan.model_fields["recommendation"].description, id="ResearchPlan.recommendation"),
     pytest.param(lambda: PortfolioDecision.model_fields["rating"].description, id="PortfolioDecision.rating"),
-    pytest.param(lambda: inspect.getsource(create_research_manager), id="research_manager prompt"),
-    pytest.param(lambda: inspect.getsource(create_portfolio_manager), id="portfolio_manager prompt"),
+    pytest.param(lambda: inspect.getsource(build_research_manager_prompt), id="research_manager prompt"),
+    pytest.param(lambda: inspect.getsource(build_portfolio_manager_prompt), id="portfolio_manager prompt"),
 ])
 def test_conflict_alone_is_not_a_hold_trigger(source):
     # The debate always contains conflicting arguments, so a Hold condition that

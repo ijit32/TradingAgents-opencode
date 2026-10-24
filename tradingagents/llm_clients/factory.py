@@ -49,6 +49,12 @@ def create_llm_client(
         from .bedrock_client import BedrockClient
         return BedrockClient(model, base_url, **kwargs)
 
+    # OpenCode's gateway spans four wire protocols, so it needs its own router
+    # rather than the OpenAI-compatible registry.
+    from .opencode_client import OpenCodeClient, is_opencode_provider
+    if is_opencode_provider(provider_lower):
+        return OpenCodeClient(model, base_url, provider=provider_lower, **kwargs)
+
     from .openai_client import OpenAIClient, is_openai_compatible
     if is_openai_compatible(provider_lower):
         return OpenAIClient(model, base_url, provider=provider_lower, **kwargs)
@@ -87,8 +93,10 @@ def _coerce_max_tokens(value):
     return n
 
 
-# Providers that take OpenAI's ``openai_reasoning_effort``.
-REASONING_EFFORT_PROVIDERS = ("openai", "chatgpt")
+# Providers that take OpenAI's ``openai_reasoning_effort``. The OpenCode
+# gateway accepts it on the models it serves through the Responses API; its
+# client drops the kwarg on the other protocols.
+REASONING_EFFORT_PROVIDERS = ("openai", "chatgpt", "opencode", "opencode-go")
 
 
 def build_llm_kwargs(config: dict) -> dict[str, Any]:

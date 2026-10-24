@@ -11,16 +11,12 @@ from tradingagents.agents.structured import (
 )
 
 
-def create_research_manager(llm):
-    structured_llm = bind_structured(llm, ResearchPlan, "Research Manager")
+def build_research_manager_prompt(state) -> str:
+    """The exact prompt the research manager is given, for graph and worker alike."""
+    instrument_context = get_instrument_context_from_state(state)
+    history = state["investment_debate_state"].get("history", "")
 
-    def research_manager_node(state) -> dict:
-        instrument_context = get_instrument_context_from_state(state)
-        history = state["investment_debate_state"].get("history", "")
-
-        investment_debate_state = state["investment_debate_state"]
-
-        prompt = f"""As the Research Manager and debate facilitator, your role is to critically evaluate this round of debate and deliver a clear, actionable investment plan for the trader.
+    return f"""As the Research Manager and debate facilitator, your role is to critically evaluate this round of debate and deliver a clear, actionable investment plan for the trader.
 
 {instrument_context}
 
@@ -50,10 +46,17 @@ Write these sections, in this order, starting with the recommendation on its own
 
 {NO_EXTERNAL_TOOLS}""" + get_language_instruction()
 
+
+def create_research_manager(llm):
+    structured_llm = bind_structured(llm, ResearchPlan, "Research Manager")
+
+    def research_manager_node(state) -> dict:
+        investment_debate_state = state["investment_debate_state"]
+
         investment_plan = invoke_structured_or_freetext(
             structured_llm,
             llm,
-            prompt,
+            build_research_manager_prompt(state),
             render_research_plan,
             "Research Manager",
         )
