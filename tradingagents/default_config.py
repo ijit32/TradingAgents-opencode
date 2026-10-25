@@ -169,6 +169,29 @@ def build_default_config() -> dict:
         "tool_vendors": {
             # Example: "get_stock_data": "alpha_vantage",  # Override category default
         },
+        # India (NSE/BSE) listings need nothing set here to be analysed: the
+        # suffix picks the market and NSE is the exchange both the price and the
+        # filing routes fall back to. The throttles are the pace the public NSE
+        # endpoints tolerate from one machine; the lookback is in calendar days.
+        # No India vendor is registered yet, so these are read only by the paths
+        # that add one.
+        "india": {
+            "preferred_exchange": "NSE",     # .NS preferred when a company lists on both
+            "statement_basis": "consolidated",  # consolidated | standalone
+            "announcements_lookback_days": 7,
+            "gdelt_enabled": True,
+            "publisher_feeds_enabled": True,
+            "integrated_filings_page_size": 2000,
+            "request_timeout_seconds": 30,
+            "min_interval_seconds": {
+                "nse": 2.0, "archives": 1.0, "gdelt": 6.0, "google_news": 2.0,
+            },
+        },
+        # BSE<->NSE overrides for dual-listed companies whose symbols differ,
+        # where the issuer master's exact name match cannot join them. Empty by
+        # default: a wrong alias would attach another company's filings, so no
+        # guess is made here.
+        "india_symbol_aliases": {},
         # Benchmark for alpha calculation in the reflection layer.
         # ``benchmark_ticker`` (when set) overrides the suffix map for all
         # tickers; leave it None to use ``benchmark_map`` for auto-detection

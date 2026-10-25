@@ -145,11 +145,12 @@ def normalize_symbol(raw: str) -> str:
 
 
 # Tickers can contain letters, digits, dot, dash, underscore, caret
-# (index symbols like ^GSPC), equals (futures like GC=F), and plus
-# (forex/CFD symbols like XAUUSD+). None of these enable directory
+# (index symbols like ^GSPC), equals (futures like GC=F), plus
+# (forex/CFD symbols like XAUUSD+), and ampersand (NSE symbols like
+# M&M.NS, M&MFIN.NS, J&KBANK.NS). None of these enable directory
 # traversal, so the value never escapes a containing directory when
 # interpolated into a path. Anything else is rejected.
-_TICKER_PATH_RE = re.compile(r"^[A-Za-z0-9._\-\^=+]+$")
+_TICKER_PATH_RE = re.compile(r"^[A-Za-z0-9._\-\^=+&]+$")
 
 
 def safe_ticker_component(value: str, *, max_len: int = 32) -> str:

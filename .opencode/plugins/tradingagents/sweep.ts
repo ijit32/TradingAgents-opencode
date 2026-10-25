@@ -4,7 +4,7 @@
  */
 
 import { join } from "node:path"
-import { PipelineError } from "./runtime"
+import { isSafeTicker, PipelineError } from "./runtime"
 import type { AnalyzeInput, BacktestCell, BacktestInput } from "./types"
 
 const DEFAULT_EVERY_N_DAYS = 7
@@ -41,7 +41,7 @@ function tickersOf(input: BacktestInput): string[] {
   const clean = [...new Set(listed.map((item) => String(item).trim().toUpperCase()).filter(Boolean))]
   if (!clean.length) throw new PipelineError("backtest needs at least one ticker")
   for (const ticker of clean) {
-    if (!/^[A-Za-z0-9._\-^=+]+$/.test(ticker)) {
+    if (!isSafeTicker(ticker)) {
       throw new PipelineError(`ticker '${ticker}' contains characters that are not allowed in a symbol`)
     }
   }

@@ -72,10 +72,30 @@ function today(): string {
   return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`
 }
 
+/**
+ * Tickers reach the filesystem as a path component, so allow only characters
+ * that cannot traverse: letters, digits, dot, dash, underscore, caret (index
+ * symbols like `^NSEI`), equals (futures like `GC=F`), plus (CFDs like
+ * `XAUUSD+`), and ampersand (NSE symbols like `M&M.NS`).
+ */
+const SAFE_TICKER = /^[A-Za-z0-9._\-^=+&]+$/
+const DOT_ONLY = /^\.+$/
+
+/**
+ * Whether `value` is safe to interpolate into a filesystem path.
+ *
+ * Mirrors `safe_ticker_component` in `tradingagents/dataflows/symbols.py`: the
+ * character class alone would let `.` and `..` through, and those traverse the
+ * parent directory when used as a path component.
+ */
+export function isSafeTicker(value: string): boolean {
+  return SAFE_TICKER.test(value) && !DOT_ONLY.test(value)
+}
+
 function tickerOf(input: AnalyzeInput): string {
   const raw = input.ticker?.trim()
   if (!raw) throw new PipelineError("ticker is required")
-  if (!/^[A-Za-z0-9._\-^=+]+$/.test(raw)) {
+  if (!isSafeTicker(raw)) {
     throw new PipelineError(
       `ticker '${raw}' contains characters that are not allowed in a symbol`,
     )

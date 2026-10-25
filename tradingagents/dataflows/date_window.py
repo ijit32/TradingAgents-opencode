@@ -6,6 +6,8 @@
   window: timestamps normalized to UTC, the upper bound exclusive at midnight
   after ``end``, and an undated item kept only when the window reaches the
   present, since a backtest cannot prove it is not from the future (#1126, #1220).
+- ``in_window_ist`` applies the same rules to Indian filings, whose window is a
+  calendar day in IST rather than in UTC (see the function for why).
 - ``coverage_gap`` reports a window a feed cannot reach as unavailable, not empty.
 - ``withhold_live_profile`` withholds present-day snapshots from historical runs.
 """
@@ -13,6 +15,8 @@
 from __future__ import annotations
 
 from datetime import UTC, date, datetime, timedelta
+
+from tradingagents.dataflows.ist import to_ist, today_ist
 
 
 def to_utc(dt: datetime) -> datetime:
@@ -29,6 +33,29 @@ def in_window(pub_dt: datetime | None, start_dt: datetime, end_dt: datetime) -> 
     if pub_dt is not None:
         return to_utc(start_dt) <= to_utc(pub_dt) < end + timedelta(days=1)
     return end >= datetime.now(UTC) - timedelta(days=1)
+
+
+def in_window_ist(pub_dt: datetime | None, start_date: str, end_date: str) -> bool:
+    """Whether an item falls on an IST calendar day in ``[start_date, end_date]``.
+
+    The window is the exchange's day, not UTC's: the half-open interval
+    ``[start_date 00:00 IST, end_date + 1 day 00:00 IST)``, decided by comparing
+    IST dates. Indian filings cluster between 18:00 and 23:30 IST, five and a
+    half hours ahead of the UTC midnights ``in_window`` bounds its window with,
+    and the mismatch is not a near miss: an item at 00:15 IST the day after
+    ``end_date`` is 18:45 UTC *on* ``end_date``, so the UTC window admits a
+    filing published after the run's date. (A same-day 20:05 IST filing is
+    14:35 UTC and survives only because the UTC bound is generous by half a
+    day.) Comparing IST days drops the first and keeps the second for the
+    right reason.
+
+    ``pub_dt`` None means undated: kept only when the window reaches the
+    present, matching ``in_window``.
+    """
+    end = date.fromisoformat(end_date)
+    if pub_dt is None:
+        return end >= today_ist()
+    return date.fromisoformat(start_date) <= to_ist(pub_dt).date() <= end
 
 
 def get_current_date() -> str:
