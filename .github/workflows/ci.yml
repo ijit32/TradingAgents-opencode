@@ -65,3 +65,21 @@ jobs:
         # The repo is fully clean under the strict select, so we lint everything
         # (generated results/ is excluded via pyproject extend-exclude).
         run: ruff check .
+
+  plugin:
+    name: plugin (bun test + typecheck)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: .opencode/plugins/tradingagents
+    steps:
+      - uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.3.14"
+      - name: Install test dependencies
+        run: bun install --frozen-lockfile
+      - name: Run plugin tests
+        run: bun test
+      - name: Type-check against the pinned plugin API
+        run: bun x tsc --noEmit

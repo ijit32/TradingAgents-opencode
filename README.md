@@ -35,7 +35,8 @@ call; a Python worker reuses the repo's dataflows, prompts, memory log, and repo
 ## Requirements
 
 - [OpenCode](https://opencode.ai) — the plugin uses the V2 plugin API
-  (`@opencode/plugin`, `ctx.session.generate`).
+  (`@opencode/plugin`, `ctx.session.generate`) and is tested against **2.1.4**; the
+  test suite installs that exact API version.
 - [uv](https://docs.astral.sh/uv/) and Python 3.11+ — the plugin runs the worker with
   `uv run python -m tradingagents.opencode_worker` from the project root.
 - **No required data or LLM key.** Prices, indicators, and news come from Yahoo Finance by
@@ -59,8 +60,10 @@ cp .env.example .env    # add the data keys above
 opencode                # open OpenCode in this directory
 ```
 
-The plugin loads automatically from `.opencode/plugins/`. Check the transport before a long
-run:
+The plugin loads automatically from `.opencode/plugins/`. The first run asks for
+permission to run the worker command (`uv run python -m tradingagents.opencode_worker`);
+allow it once and save, and later runs start without a prompt. Check the transport before
+a long run:
 
 ```text
 /trading-probe
@@ -99,7 +102,7 @@ The same runs are available as tools for chat use: `trading_analyze`, `trading_b
 | `--asset-type` | `stock` (default) or `crypto`. |
 | `--language` | Report language. Defaults to English. |
 | `--resume` | Run id or unique prefix. With no value, the newest run for that ticker and date. |
-| `--run-dir` | Absolute path of an existing run directory. |
+| `--run-dir` | Absolute path of an existing run, inside the plugin's run root. |
 | `--rerun` | Force one stage even if its prompt is unchanged. |
 | `--rerun-from` | Force that stage and everything after it. |
 | `--no-memory` | Skip settlement and decision recording for this run. |
@@ -244,6 +247,8 @@ cells in the log.
 | `quota` | The free allowance is spent | Wait for it to reset, or configure a paid/Go model |
 | `validation failed` after repairs | Report too short, or the decision JSON does not match the schema | Check `stages/<stage>.out.txt`; the run records a lenient fallback marked `> [review]` |
 | `no <analyst> data could be collected` | Every vendor for that pack failed | Check the ticker and data keys; see `data/index.json` notes |
+| `project directory missing` / `no pyproject.toml` | OpenCode is not running at the repo root | Reopen OpenCode in the repository, or set `runRoot` only for runs, not for the project |
+| `uv could not be started` | `uv` is not on `PATH` | Install uv, or point `python` at an interpreter |
 
 ## Current limits
 

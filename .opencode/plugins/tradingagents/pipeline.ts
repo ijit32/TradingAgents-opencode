@@ -16,7 +16,7 @@
 
 import type { Plugin } from "@opencode/plugin"
 import { mkdir, readdir, readFile, writeFile } from "node:fs/promises"
-import { join } from "node:path"
+import { isAbsolute, join, relative, resolve } from "node:path"
 import {
   createCheckpoint,
   hashJson,
@@ -537,6 +537,21 @@ interface ResolvedRunDir {
   readonly resumed: boolean
 }
 
+/**
+ * Confine an explicit run directory to the plugin's run root.
+ *
+ * `/analyze --run-dir` may only reach a run this plugin created. Without this,
+ * a prompt could point the worker at any directory on disk and have it write
+ * reports, a memory entry, and a state log there.
+ */
+export function confineRunDir(base: string, candidate: string): string {
+  const root = resolve(base)
+  const target = resolve(candidate)
+  const rel = relative(root, target)
+  if (rel === "" || (!rel.startsWith("..") && !isAbsolute(rel))) return target
+  throw new PipelineError(`run directory must be inside ${root}, got ${target}`)
+}
+
 async function resolveRunDir(context: {
   config: TradingConfig
   input: AnalyzeInput
@@ -551,9 +566,10 @@ async function resolveRunDir(context: {
     return { runDir, resumed: true }
   }
   if (explicit) {
+    const base = runRootOf(context.config, context.input)
     const runDir = explicit.includes("/") || explicit.includes("\\")
-      ? expandHome(explicit)
-      : await resolveRunId(runRootOf(context.config, context.input), explicit)
+      ? confineRunDir(base, expandHome(explicit))
+      : await resolveRunId(base, explicit)
     const probe = await readTextOrNull(join(runDir, "request.json"))
     if (!probe) throw new PipelineError(`no run directory with a request.json at ${runDir}`)
     return { runDir, resumed: true }

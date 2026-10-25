@@ -34,6 +34,10 @@ The same runs are available as `trading_analyze` and `trading_backtest` for chat
 use. `trading_report` reads a finished run and `trading_status` reads any run,
 neither calling a model.
 
+The first run asks for permission to execute the worker command
+(`uv run python -m tradingagents.opencode_worker`). A deny stops the run before
+any model call; allow-once-with-save makes later runs prompt-free.
+
 | Argument | Meaning |
 |---|---|
 | `ticker` | Required. `NVDA`, `BTC-USD`, `^GSPC`, `GC=F`. |
@@ -45,7 +49,7 @@ neither calling a model.
 | `--asset-type` | `stock` (default) or `crypto`. |
 | `--language` | Report language. Defaults to English. |
 | `--resume` | Run id or unique prefix. With no value, the newest run for that ticker and date. |
-| `--run-dir` | Absolute path of an existing run directory. |
+| `--run-dir` | Absolute path of an existing run, inside the plugin's run root. |
 | `--rerun` | Force one stage even if its prompt is unchanged. |
 | `--rerun-from` | Force that stage and everything after it. |
 | `--no-memory` | Skip settlement and decision recording for this run. |

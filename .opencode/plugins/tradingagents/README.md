@@ -301,3 +301,36 @@ default. A backtest sets both per sweep, so its cells never read the default log
 
 `concurrency` bounds only the generation calls; packs are always collected sequentially, since
 the vendors are the part that rate-limits.
+
+## Safety and environment
+
+The plugin asks before it shells out: `/analyze` and `/backtest` call
+`ctx.permission.assert` with action `bash` and the resource
+`uv run python -m tradingagents.opencode_worker`. A deny stops the run before any model
+call; allow-once-with-save writes that command to the project's allow list.
+
+An explicit `--run-dir` is confined to the plugin's run root. A path that resolves outside
+`runRoot` (or a sweep's own `runs/` directory) is rejected before the worker starts, so a
+run cannot write reports, a memory entry, or a state log into an unrelated directory.
+
+Before spawning, the worker checks that the project directory exists, that it holds
+`pyproject.toml`, and that a custom `python` path exists. On Windows `uv.exe` and
+`python.exe` are resolved explicitly. Each failure names the fix instead of surfacing a bare
+`spawn ENOENT`.
+
+## Version and tests
+
+Tested against **OpenCode 2.1.4**; `package.json` pins `@opencode/plugin@2.1.4` so the
+type-check runs against that API. The suite covers model-reference parsing, config
+defaults and clamping, checkpoint hashing/resume, run-id resolution, run-dir confinement,
+and spawn preflight:
+
+```bash
+cd .opencode/plugins/tradingagents
+bun install
+bun test          # 31 tests
+bun x tsc --noEmit
+```
+
+CI runs the same three steps in the `plugin` job.
+

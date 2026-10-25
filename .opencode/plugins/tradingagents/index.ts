@@ -22,6 +22,30 @@ import { renderBacktest, runBacktest } from "./backtest"
 import { describeRun, readReport, renderSummary, runAnalysis } from "./pipeline"
 import { type ProbeInput, runProbe } from "./probe"
 
+/** The command the worker runs; also the resource checked against permission rules. */
+const WORKER_COMMAND = "uv run python -m tradingagents.opencode_worker"
+
+/**
+ * Ask before the plugin shells out.
+ *
+ * The worker executes local Python, so it goes through the session's `bash`
+ * rules: a deny blocks the run, and an `ask` shows the usual prompt. Allowing
+ * once with save adds the command to the project's allow list.
+ */
+async function assertWorkerPermission(
+  ctx: Plugin.Context,
+  sessionID: string,
+  source?: { type: "tool"; messageID: string; id: string },
+): Promise<void> {
+  await ctx.permission.assert({
+    sessionID,
+    ...(source ? { source } : {}),
+    action: "bash",
+    resources: [WORKER_COMMAND],
+    save: [WORKER_COMMAND],
+  })
+}
+
 function parseAnalysisText(text: string): AnalyzeInput {
   const tokens = text.split(/\s+/).filter(Boolean)
   const input: Record<string, unknown> = {}
@@ -236,6 +260,11 @@ export default Plugin.define({
             await context.progress({ status: message })
           }
           try {
+            await assertWorkerPermission(ctx, context.sessionID, {
+              type: "tool",
+              messageID: context.messageID,
+              id: context.id,
+            })
             const summary = await runAnalysis(ctx, input, {
               progress,
               signal: context.signal,
@@ -318,6 +347,11 @@ export default Plugin.define({
             await context.progress({ status: message })
           }
           try {
+            await assertWorkerPermission(ctx, context.sessionID, {
+              type: "tool",
+              messageID: context.messageID,
+              id: context.id,
+            })
             const result = await runBacktest(ctx, input, {
               progress,
               signal: context.signal,
@@ -508,6 +542,7 @@ export default Plugin.define({
             await ctx.session.synthetic({ sessionID, text: message })
           }
           try {
+            await assertWorkerPermission(ctx, sessionID)
             await progress(`TradingAgents: starting ${input.ticker ?? "run"}…`)
             const summary = await runAnalysis(ctx, input, { progress })
             await progress(renderSummary(summary))
@@ -528,6 +563,7 @@ export default Plugin.define({
             await ctx.session.synthetic({ sessionID, text: message })
           }
           try {
+            await assertWorkerPermission(ctx, sessionID)
             await progress(`TradingAgents backtest: ${(input.tickers ?? []).join(", ") || "sweep"}…`)
             const result = await runBacktest(ctx, input, { progress })
             await progress(renderBacktest(result))

@@ -79,10 +79,40 @@ interface Command {
   readonly prefix: readonly string[]
 }
 
-function pythonCommand(python: string): Command {
+/** Windows resolves `uv`/`python` through PATHEXT, but spawn needs the suffix. */
+export function executable(name: string): string {
+  if (process.platform !== "win32") return name
+  if (/\.(exe|cmd|bat)$/i.test(name)) return name
+  return `${name}.exe`
+}
+
+export function pythonCommand(python: string): Command {
   const base = python.split(/[\\/]/).pop() ?? python
-  if (base.startsWith("python")) return { file: python, prefix: [] }
-  return { file: python, prefix: ["run", "python"] }
+  if (base.startsWith("python")) return { file: executable(python), prefix: [] }
+  return { file: executable(python), prefix: ["run", "python"] }
+}
+
+/**
+ * Fail before spawning when the project or `uv` is missing.
+ *
+ * A bare ENOENT from `spawn` does not say which of the two is absent, and the
+ * fix is different: open the repo root, or install uv.
+ */
+export function assertWorkerEnvironment(options: WorkerOptions): void {
+  const directory = options.directory
+  if (!existsSync(directory)) {
+    throw new Error(`project directory missing: ${directory}`)
+  }
+  if (!existsSync(join(directory, "pyproject.toml"))) {
+    throw new Error(
+      `no pyproject.toml in ${directory}; run OpenCode from the repository root`,
+    )
+  }
+  const runner = options.python ?? "uv"
+  const file = pythonCommand(runner).file
+  if (file !== "uv.exe" && runner !== "uv" && !existsSync(file)) {
+    throw new Error(`python runner not found: ${file}`)
+  }
 }
 
 function timeoutFor(action: WorkerInvocation["action"]): number {
@@ -160,6 +190,12 @@ function spawnWorker(
   timeoutMs: number,
 ): Promise<WorkerReply> {
   return new Promise<WorkerReply>((resolve, reject) => {
+    try {
+      assertWorkerEnvironment(options)
+    } catch (error) {
+      reject(error instanceof Error ? error : new Error(String(error)))
+      return
+    }
     const child = spawn(file, [...argv], {
       cwd: options.directory,
       env: childEnv(),
