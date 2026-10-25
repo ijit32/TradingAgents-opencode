@@ -8,11 +8,71 @@ from dateutil.relativedelta import relativedelta
 from stockstats import wrap
 
 from tradingagents.dataflows.errors import NoMarketDataError, VendorError
+from tradingagents.dataflows.markets import india_exchange, is_india
 from tradingagents.dataflows.symbols import normalize_symbol
 from tradingagents.dataflows.vendors.yahoo.common import raise_for_empty, yf_retry
 from tradingagents.dataflows.vendors.yahoo.ohlcv import _assert_ohlcv_not_stale, load_ohlcv
 
 logger = logging.getLogger(__name__)
+
+# A BSE (``.BO``) tape that answers a long window with a handful of bars is not
+# the window that was asked for. Measured 2026-10-25 on 19 scrips with data:
+# complete ``.BO`` tapes return 94-95% of the window's weekdays (the missing
+# 5-6% are exchange holidays); a truncated BSE tape returns a single latest bar
+# whatever the window (0.1-0.4%); and a scrip asked for more years than it has
+# been listed reaches 33-42% over five years and 59-70% over three. Nothing
+# measured landed between 42% and 59%, so a cut inside that empty band
+# misclassifies no observed case, and 50% keeps ~8 points of margin either side.
+BO_SPARSE_MIN_COVERAGE = 0.5
+
+# Below this many weekdays a small row count says nothing: two weeks can be
+# short because of a holiday cluster, and one long weekend is not sparse.
+BO_SPARSE_MIN_SESSIONS = 20
+
+
+def _assert_bo_history_not_sparse(
+    data: pd.DataFrame,
+    symbol: str,
+    canonical: str | None,
+    start_date: str,
+    end_date: str,
+) -> None:
+    """Reject a ``.BO`` frame that covers only a fraction of the window.
+
+    The rule: count the weekdays (Mon-Fri) in ``[start_date, end_date]``
+    inclusive as the expected sessions — holidays are not modelled, which is why
+    a complete tape measures 94-95% rather than 100% — and call the history
+    sparse when the frame holds fewer than half of them. Windows under 20
+    weekdays are never judged: there is nothing meaningful for a 50% rule to
+    measure in two weeks, and a holiday cluster can shorten a fortnight. A window
+    that reaches back before the scrip listed is judged by the same rule, on
+    purpose: a year of bars cannot answer a five-year question, and saying so
+    beats analysing the year as if it were the window.
+
+    Raises ``NoMarketDataError`` (detail carries both the bar count and the
+    session count) so the router reports one honest "no usable prices" signal.
+    It never substitutes the ``.NS`` series: a BSE quote is a different
+    exchange's tape, so the hint names the NSE ticker and leaves the choice to
+    the caller. Empty frames stay with ``raise_for_empty``, which can tell a
+    delisting from an outage; this guard only judges frames that have rows.
+    """
+    expected = len(pd.bdate_range(start_date, end_date))
+    if expected < BO_SPARSE_MIN_SESSIONS or data is None or data.empty:
+        return
+    if len(data) >= BO_SPARSE_MIN_COVERAGE * expected:
+        return
+    coverage = round(100 * len(data) / expected)
+    bars = len(data)
+    detail = (
+        f"only {bars} {'bar' if bars == 1 else 'bars'} between {start_date} and {end_date} "
+        f"({coverage}% of {expected} sessions) — BSE history for this scrip is sparse"
+    )
+    # Imported here, not at module scope: the price path for every market would
+    # otherwise load the NSE transport (session, cache dirs) on import, and only
+    # a sparse ``.BO`` answer ever needs it.
+    from tradingagents.dataflows.vendors.nse.issuer import nse_symbol_hint
+
+    raise NoMarketDataError(symbol, canonical, detail + nse_symbol_hint(symbol))
 
 
 def get_YFin_data_online(
@@ -47,6 +107,14 @@ def get_YFin_data_online(
     # formatted into the report. Raises NoMarketDataError, which the router
     # turns into one clear unavailable signal (#1021).
     _assert_ohlcv_not_stale(data, end_date, symbol, canonical)
+
+    # A BSE tape can answer a long window with only its latest bar, which would
+    # be formatted into the report as if it were the window's prices. Only
+    # ``.BO``: the ``.NS`` tape and the US/global symbols return complete
+    # series, and the pair says "India, BSE" so no index, crypto or forex symbol
+    # can reach the guard.
+    if is_india(symbol) and india_exchange(symbol) == "BSE":
+        _assert_bo_history_not_sparse(data, symbol, canonical, start_date, end_date)
 
     # Round numerical values to 2 decimal places for cleaner display
     numeric_columns = ["Open", "High", "Low", "Close", "Adj Close"]

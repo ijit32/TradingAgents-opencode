@@ -21,7 +21,7 @@ import io
 from dataclasses import dataclass
 
 from tradingagents.dataflows import markets
-from tradingagents.dataflows.errors import VendorUnavailableError
+from tradingagents.dataflows.errors import VendorError, VendorUnavailableError
 from tradingagents.dataflows.vendors.nse import client
 
 _URL = f"{client.ARCHIVES_BASE}/content/equities/EQUITY_L.csv"
@@ -149,3 +149,32 @@ def nse_symbol_for_bse(bse_symbol: str, name: str = "") -> str | None:
     if not name.strip():
         return None
     return nse_symbol_for_name(name)
+
+
+def nse_symbol_hint(symbol: str) -> str:
+    """A "; NSE lists 'X.NS'" sentence for a BSE symbol, or ``""``.
+
+    A sparse BSE tape is often a dual-listed scrip whose NSE line is complete,
+    so the failure detail names the ticker that would work instead of leaving
+    the reader to guess. It is a hint, never a substitution: the BSE and NSE
+    tapes are different markets.
+
+    Best effort by design. This runs only after a gap was already found, and a
+    lookup that fails (NSE throttled, master unreadable, config broken) must
+    leave the caller's error exactly as it was rather than replace it with a
+    different one, so failures become "no hint".
+    """
+    try:
+        issuer = issuer_for(f"{markets.india_ticker(symbol)}.NS")
+    except VendorError:
+        return ""
+    except Exception:  # noqa: BLE001 - a hint must never mask the real error
+        return ""
+    if issuer is None:
+        return ""
+    # The symbol the master actually lists, not the one we guessed: the hint is
+    # only useful if the reader can paste it into the next request.
+    return (
+        f"; NSE lists {issuer.symbol + '.NS'!r} for the same symbol — "
+        "request that ticker for full history"
+    )

@@ -7,6 +7,7 @@ import yfinance as yf
 from tradingagents.dataflows.config import get_config
 from tradingagents.dataflows.errors import NoMarketDataError
 from tradingagents.dataflows.files import replace_file
+from tradingagents.dataflows.markets import india_exchange, is_india
 from tradingagents.dataflows.symbols import normalize_symbol, safe_ticker_component
 from tradingagents.dataflows.vendors.yahoo.common import raise_for_empty, yf_retry
 
@@ -22,6 +23,15 @@ MAX_OHLCV_STALE_DAYS = 10
 # up today's close soon after it publishes, long enough that a day with no bar
 # at all (weekend, holiday) cannot trigger a download on every call.
 OHLCV_CACHE_TTL_SECONDS = 900
+
+# A ``.BO`` tape that answers a five-year download with a handful of bars is the
+# truncated-tape class, not a recent listing: the scrip returns one bar whatever
+# range is asked for. Every indicator needs more than this, so serving the frame
+# would let stockstats print a value computed from one row (a "50 SMA" from a
+# single close). The window-based guard in ``market.py`` covers a window longer
+# than the listing; this one covers the tape that has no history at all, and the
+# low floor keeps a genuine new listing out of it.
+BO_MIN_HISTORY_BARS = 5
 
 
 def _ensure_date_column(data: pd.DataFrame) -> pd.DataFrame:
@@ -143,6 +153,36 @@ def _assert_ohlcv_not_stale(
         )
 
 
+def _assert_bo_history_not_truncated(
+    data: pd.DataFrame,
+    symbol: str,
+    canonical: str | None = None,
+) -> None:
+    """Reject a ``.BO`` frame too short for any indicator to mean anything.
+
+    The price path already rejects a window the BSE tape cannot cover, but the
+    indicator and snapshot paths call ``load_ohlcv`` directly and never see that
+    window. Without this guard a one-bar tape still produces a "50 SMA" from a
+    single close — a fabricated number shown beside a real one. Raising the
+    typed error makes the whole pack say the same thing: this scrip's BSE
+    history is unavailable, and the NSE listing is the alternative.
+    """
+    if not (is_india(symbol) and india_exchange(symbol) == "BSE"):
+        return
+    if data is None or data.empty or len(data) >= BO_MIN_HISTORY_BARS:
+        return
+    # Imported here: most symbols never reach this branch, and the NSE master
+    # (with its session and cache) should not load for every price request.
+    from tradingagents.dataflows.vendors.nse.issuer import nse_symbol_hint
+
+    bars = len(data)
+    detail = (
+        f"only {bars} {'bar' if bars == 1 else 'bars'} of price history — "
+        "BSE history for this scrip is sparse"
+    )
+    raise NoMarketDataError(symbol, canonical, detail + nse_symbol_hint(symbol))
+
+
 def _cache_is_fresh(data_file, as_of_dt, now) -> bool:
     """Whether the symbol's cached download can serve this request.
 
@@ -253,6 +293,11 @@ def load_ohlcv(symbol: str, as_of_date: str, fill_gaps: bool = True) -> pd.DataF
     # Reject a stale frame (latest row far older than as_of_date) rather than
     # feeding year-old prices into indicators (#1021).
     _assert_ohlcv_not_stale(data, as_of_date, symbol, canonical)
+
+    # A BSE tape can hold a single bar however much history is asked for. No
+    # indicator can be computed from that, and stockstats would still render a
+    # number, so refuse the frame rather than let it reach the pack.
+    _assert_bo_history_not_truncated(data, symbol, canonical)
 
     return data
 
