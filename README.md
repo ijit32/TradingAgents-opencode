@@ -53,8 +53,8 @@ call; a Python worker reuses the repo's dataflows, prompts, memory log, and repo
 ## Setup
 
 ```bash
-git clone https://github.com/ijit32/TradingAgents-rs.git
-cd TradingAgents-rs
+git clone https://github.com/ijit32/TradingAgents-opencode
+cd TradingAgents-opencode
 uv sync
 cp .env.example .env    # add the data keys above
 opencode                # open OpenCode in this directory
