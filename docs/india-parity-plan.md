@@ -474,6 +474,14 @@ Done when: `M&M.NS` runs a market-only analysis; `bun test` and
 Done when: `RELIANCE.BO` over a sparse window reports the reason and
 `RELIANCE.NS` is unaffected.
 
+**Shipped 2026-10-25.** Measured 19 BSE scrips: complete tapes cover 94–95 % of
+weekdays; truncated tapes return one bar whatever the window; windows longer
+than the listing reach 33–42 % over five years. Nothing measured between 42 %
+and 59 %, so the guard fires below 50 % of weekdays (windows of 20+ weekdays
+only, `.BO` only) and names the `.NS` ticker without substituting it. The
+indicator and snapshot paths, which never see the requested window, reject a
+`.BO` frame shallower than five bars for the same reason.
+
 ### Phase 2a — Structured-coverage spike (≈2 days, gate)
 
 Before writing statement code, measure what actually exists. For a fixed sample
@@ -489,6 +497,15 @@ Exit criteria for continuing to 2b:
 
 - ≥60 % of sampled quarters have a parseable XBRL instance; **and**
 - ≥1 annual instance per sampled issuer parses with a balance sheet.
+
+**Result 2026-10-25: the gate fails — 30/120 quarters = 25.0 %**
+(`docs/india-phase2a-structured-coverage.md`). All 30 misses are "no filing
+row", not parser failures: every instance the integrated index exposes parses
+(30/30), and 14/15 NSE issuers have an annual balance sheet. The index itself
+starts April 2025, so older quarters exist only as announcements. Decision:
+ship Phase 2c (named and dated announcements for all history, XBRL statements
+for the two covered quarters, annual history where present) and defer 2b's
+eight-quarter promise. `.BO`-only coverage stays unmeasurable — BSE is blocked.
 
 If coverage is below that, do not write a statement parser on hope: stop, and
 take the coverage number to the build-vs-buy gate (§13) before proceeding. The
