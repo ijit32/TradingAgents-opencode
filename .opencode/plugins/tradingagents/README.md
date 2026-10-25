@@ -8,18 +8,33 @@ a worker instead of being ported.
 
 | File | Role |
 |---|---|
-| `index.ts` | `Plugin.define`; registers `/ta-analyze`, `/ta-backtest`, `/ta-report`, `/ta-probe`, `trading_analyze`, `trading_backtest`, `trading_report`, `trading_status`, `trading_probe` |
+| `index.ts` | `Plugin.define`; wires the tool and command registrations and the dispose hook |
+| `tools.ts` | Registers `trading_analyze`, `trading_backtest`, `trading_report`, `trading_status`, `trading_probe` |
+| `commands.ts` | Registers `/ta-analyze`, `/ta-backtest`, `/ta-report`, `/ta-probe` |
+| `parse.ts` | Command-line parsing for tickers, dates, flags, and the probe prompt |
+| `permissions.ts` | The `bash` permission gate around the worker command |
+| `render.ts` | Shared error markdown for tools and commands |
+| `editor-types.ts` | Editor types derived from the public `Plugin.Context`, not internal dist paths |
 | `config.ts` | Options, defaults, `provider/model[#variant]` parsing, per-stage model selection, run root |
 | `types.ts` | Pipeline, checkpoint, and worker-reply types |
 | `worker.ts` | The worker facade: shared sessions, one-shot fallback, `status` helper, protocol re-exports |
 | `session.ts` | Persistent `serve` child: request ids, reply routing, timeouts, abort, crash restart, structured stderr logs |
+| `sessions.ts` | The session registry: one persistent worker per project and runner, plus the one-shot switch |
 | `oneshot.ts` | One action per subprocess (`TA_OPENCODE_WORKER=oneshot`) and the spawn/environment checks |
 | `protocol.ts` | Frame encoding/decoding and the version check |
 | `protocol.schema.json` | Canonical worker protocol (v1) request/reply schema |
 | `protocol.generated.ts` | Generated TypeScript types; do not edit by hand |
 | `checkpoint.ts` | Atomic `checkpoint.json`, prompt/request hashing, run-id naming, resume rule |
-| `pipeline.ts` | Runs the worker's stage plan: parallel analyst wave, then the sequential debate and decision chain; memory pass, settle, repair/lenient policy, checkpointing, `final_state.json`, report reading, status rendering |
-| `backtest.ts` | Plans a date grid, runs one isolated analysis per cell, settles the tail, renders the sweep summary |
+| `pipeline.ts` | Public facade over the pipeline modules below |
+| `runtime.ts` | Input normalization, run context, checkpoint store, worker helpers |
+| `stage.ts` | Prepare, generate, validate, and repair one stage |
+| `run.ts` | The ordered run: analyst wave, debate chain, memory pass, resume, final handoff |
+| `run-dir.ts` | Run directory creation, id resolution, latest-run lookup |
+| `payload.ts` | `request.json`, merged with a resumed run's saved settings |
+| `memory-pass.ts` | Settle past decisions, generate reflections, inject the lessons |
+| `report.ts` | `final_state.json`, terminal summary, report and status readers |
+| `backtest.ts` | Plans a date grid, runs one isolated analysis per cell, settles the tail, renders the summary |
+| `sweep.ts` | Pure backtest helpers: ids, dates, tickers, cells, per-cell input |
 | `generate.ts` | Generation wrapper: session-bound requests, timeouts, retry/backoff, fallback |
 | `models.ts` | Model discovery and validation against the active registry |
 | `probe.ts` | Phase 0 diagnostic: reachability, latency, concurrency, error class |
@@ -365,13 +380,13 @@ Before spawning, the worker checks that the project directory exists, that it ho
 Tested against **OpenCode 2.1.4**; `package.json` pins `@opencode/plugin@2.1.4` so the
 type-check runs against that API. The suite covers model-reference parsing, config
 defaults and clamping, checkpoint hashing/resume, run-id resolution, run-dir confinement,
-spawn preflight, frame encoding/version checks, reply-id routing, structured errors,
-timeouts, aborts, crash restart, and log forwarding:
+spawn preflight, command parsing, frame encoding/version checks, reply-id routing,
+structured errors, timeouts, aborts, crash restart, and log forwarding:
 
 ```bash
 cd .opencode/plugins/tradingagents
 bun install
-bun test          # 49 tests
+bun test          # 58 tests
 bun x tsc --noEmit
 ```
 

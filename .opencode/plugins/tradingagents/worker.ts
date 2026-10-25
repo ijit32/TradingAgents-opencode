@@ -11,7 +11,7 @@
 
 import { existsSync } from "node:fs"
 import { EXIT_BAD_INPUT, WorkerError, type WorkerOptions } from "./oneshot"
-import { runWorker } from "./session"
+import { runWorker } from "./sessions"
 import type { WorkerReply } from "./types"
 
 export {
@@ -28,13 +28,9 @@ export {
   timeoutFor,
 } from "./oneshot"
 export type { Command, WorkerInvocation, WorkerOptions } from "./oneshot"
-export {
-  PROTOCOL_VERSION,
-  WorkerSession,
-  closeWorkerSessions,
-  getWorkerSession,
-  runWorker,
-} from "./session"
+export { PROTOCOL_VERSION } from "./protocol"
+export { WorkerSession } from "./session"
+export { closeWorkerSessions, getWorkerSession, runWorker } from "./sessions"
 export type { SpawnFn } from "./session"
 export {
   asReplyFrame,
