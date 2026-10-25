@@ -21,6 +21,7 @@ import { formatModelRef, readConfig } from "./config"
 import { renderBacktest, runBacktest } from "./backtest"
 import { describeRun, readReport, renderSummary, runAnalysis } from "./pipeline"
 import { type ProbeInput, runProbe } from "./probe"
+import { closeWorkerSessions } from "./worker"
 
 /** The command the worker runs; also the resource checked against permission rules. */
 const WORKER_COMMAND = "uv run python -m tradingagents.opencode_worker"
@@ -619,6 +620,7 @@ export default Plugin.define({
     return async () => {
       await commandRegistration.dispose()
       await toolRegistration.dispose()
+      await closeWorkerSessions()
     }
   },
 })

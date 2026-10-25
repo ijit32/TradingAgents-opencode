@@ -4,12 +4,14 @@
   "type": "module",
   "scripts": {
     "test": "bun test",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "protocol:types": "json2ts --input protocol.schema.json --output protocol.generated.ts"
   },
   "devDependencies": {
     "@opencode/plugin": "2.1.4",
     "@types/bun": "^1.4.4",
     "@types/node": "^24.0.0",
+    "json-schema-to-typescript": "16.0.0",
     "typescript": "^5.9.0"
   }
 }

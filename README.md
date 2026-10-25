@@ -148,6 +148,12 @@ repo's agent code. The three decision stages append a JSON schema and are parsed
 repo's pydantic models. A rejected parse gets a repair prompt, twice, then a lenient
 acceptance marked `> [review]` rather than a lost stage.
 
+The worker is one long-lived `serve` process per session, driven by a versioned
+newline-delimited JSON protocol. Requests carry an id, replies echo it, and a timeout,
+abort, or crash kills the session instead of leaving a half-alive process behind. The
+Python data layer stays the only implementation; the plugin's `.opencode/plugins/tradingagents/README.md`
+documents the transport and the schema.
+
 ## Configuration
 
 Plugins under `.opencode/plugins/` receive no options; every value has a working default.

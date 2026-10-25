@@ -1,0 +1,114 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/ijit32/TradingAgents-opencode/worker-protocol.schema.json",
+  "title": "TradingAgents worker protocol",
+  "description": "One request or reply frame exchanged with `python -m tradingagents.opencode_worker serve`. Frames are newline-delimited JSON on stdin/stdout. Protocol version 1.",
+  "$defs": {
+    "WorkerAction": {
+      "type": "string",
+      "description": "A worker action. `ping` and `shutdown` are server control actions.",
+      "enum": [
+        "init",
+        "plan",
+        "collect",
+        "prompt",
+        "validate",
+        "debates",
+        "memory-begin",
+        "memory-apply",
+        "settle",
+        "backtest-plan",
+        "backtest-summary",
+        "status",
+        "ping",
+        "shutdown"
+      ]
+    },
+    "WorkerRequestFrame": {
+      "type": "object",
+      "description": "One line on the worker's stdin.",
+      "required": ["protocol_version", "id", "action"],
+      "properties": {
+        "protocol_version": {
+          "const": 1,
+          "description": "Must match PROTOCOL_VERSION in protocol.py and worker.ts."
+        },
+        "id": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Client request id. Replies echo it so concurrent actions cannot be confused."
+        },
+        "action": {
+          "$ref": "#/$defs/WorkerAction"
+        },
+        "run_dir": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Absolute run directory. Required for every action except ping and shutdown."
+        },
+        "stage": {
+          "type": "string",
+          "minLength": 1
+        },
+        "analyst": {
+          "type": "string",
+          "minLength": 1
+        },
+        "lenient": {
+          "type": "boolean"
+        },
+        "json_args": {
+          "type": "object",
+          "description": "Action-specific arguments, equivalent to the one-shot --json-args file."
+        }
+      },
+      "additionalProperties": false
+    },
+    "WorkerReplyFrame": {
+      "type": "object",
+      "description": "One line on the worker's stdout.",
+      "required": ["protocol_version", "id", "ok"],
+      "properties": {
+        "protocol_version": {
+          "const": 1
+        },
+        "id": {
+          "type": ["integer", "null"],
+          "description": "The request id, or null when the request could not be parsed."
+        },
+        "ok": {
+          "type": "boolean"
+        },
+        "action": {
+          "type": "string"
+        },
+        "error": {
+          "type": "string"
+        },
+        "errors": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "exit_code": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4,
+          "description": "One-shot exit code equivalent: 0 ok, 2 validation, 3 bad input, 4 vendor, 1 internal."
+        },
+        "duration_ms": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "ready": {
+          "type": "boolean",
+          "description": "Present on a ping reply."
+        }
+      },
+      "additionalProperties": true
+    }
+  },
+  "oneOf": [
+    { "$ref": "#/$defs/WorkerRequestFrame" },
+    { "$ref": "#/$defs/WorkerReplyFrame" }
+  ]
+}

@@ -11,7 +11,12 @@ a worker instead of being ported.
 | `index.ts` | `Plugin.define`; registers `/ta-analyze`, `/ta-backtest`, `/ta-report`, `/ta-probe`, `trading_analyze`, `trading_backtest`, `trading_report`, `trading_status`, `trading_probe` |
 | `config.ts` | Options, defaults, `provider/model[#variant]` parsing, per-stage model selection, run root |
 | `types.ts` | Pipeline, checkpoint, and worker-reply types |
-| `worker.ts` | Spawns `uv run python -m tradingagents.opencode_worker`; maps exit codes to errors |
+| `worker.ts` | The worker facade: shared sessions, one-shot fallback, `status` helper, protocol re-exports |
+| `session.ts` | Persistent `serve` child: request ids, reply routing, timeouts, abort, crash restart, structured stderr logs |
+| `oneshot.ts` | One action per subprocess (`TA_OPENCODE_WORKER=oneshot`) and the spawn/environment checks |
+| `protocol.ts` | Frame encoding/decoding and the version check |
+| `protocol.schema.json` | Canonical worker protocol (v1) request/reply schema |
+| `protocol.generated.ts` | Generated TypeScript types; do not edit by hand |
 | `checkpoint.ts` | Atomic `checkpoint.json`, prompt/request hashing, run-id naming, resume rule |
 | `pipeline.ts` | Runs the worker's stage plan: parallel analyst wave, then the sequential debate and decision chain; memory pass, settle, repair/lenient policy, checkpointing, `final_state.json`, report reading, status rendering |
 | `backtest.ts` | Plans a date grid, runs one isolated analysis per cell, settles the tail, renders the sweep summary |
@@ -302,6 +307,43 @@ default. A backtest sets both per sweep, so its cells never read the default log
 `concurrency` bounds only the generation calls; packs are always collected sequentially, since
 the vendors are the part that rate-limits.
 
+## Worker transport and protocol
+
+The plugin spawns the worker once per OpenCode session:
+
+```
+uv run python -m tradingagents.opencode_worker serve
+```
+
+and sends one newline-delimited JSON request per line on stdin. Stdout carries only reply
+frames; logs go to stderr as JSON lines. Every reply echoes the request `id`, so a slow
+`collect` cannot be mistaken for the `status` sent after it. The server answers on a small
+thread pool (`TA_WORKER_THREADS`, default 4), which lets a status poll run while a vendor
+call is in flight.
+
+`protocol.schema.json` is the canonical contract. `protocol.generated.ts` is generated from
+it and is what `session.ts` writes against; the Python side validates the same frames and
+`tests/test_opencode_protocol.py` checks both against the schema. Version 1 is enforced in
+both directions: a mismatch is refused rather than misread.
+
+Exit codes survive the transport as `exit_code` on the reply: `0` ok, `2` validation failed
+(retryable), `3` bad input, `4` vendor missing, `1` internal. A failed action rejects with
+`WorkerError`, carrying the same code and `errors` list the one-shot path produced. A
+malformed frame, unknown action, or version mismatch fails only that request; the server
+stays up.
+
+One bad process is not reused. A timeout, abort, crash, or protocol mismatch kills the
+session and rejects everything in flight; the next request starts a fresh worker. `close()`
+sends `shutdown` and is called from the plugin's dispose hook, so no child outlives OpenCode.
+
+```bash
+# Regenerate the TypeScript types after editing the schema.
+bun run protocol:types
+
+# One process per action, useful when debugging a single action.
+TA_OPENCODE_WORKER=oneshot bun test
+```
+
 ## Safety and environment
 
 The plugin asks before it shells out: `/ta-analyze` and `/ta-backtest` call
@@ -323,12 +365,13 @@ Before spawning, the worker checks that the project directory exists, that it ho
 Tested against **OpenCode 2.1.4**; `package.json` pins `@opencode/plugin@2.1.4` so the
 type-check runs against that API. The suite covers model-reference parsing, config
 defaults and clamping, checkpoint hashing/resume, run-id resolution, run-dir confinement,
-and spawn preflight:
+spawn preflight, frame encoding/version checks, reply-id routing, structured errors,
+timeouts, aborts, crash restart, and log forwarding:
 
 ```bash
 cd .opencode/plugins/tradingagents
 bun install
-bun test          # 31 tests
+bun test          # 49 tests
 bun x tsc --noEmit
 ```
 

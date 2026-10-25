@@ -15,6 +15,7 @@ import argparse
 import hashlib
 import json
 import sys
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -538,10 +539,41 @@ ACTIONS = {
 # ---- CLI -------------------------------------------------------------------
 
 
+@dataclass
+class WorkerArgs:
+    """The action options after parsing, shared by both invocation modes."""
+
+    run_dir: str | None
+    stage: str | None = None
+    analyst: str | None = None
+    lenient: bool = False
+    json_args: dict[str, Any] = field(default_factory=dict)
+
+
+def dispatch(action: str, args: WorkerArgs) -> tuple[dict[str, Any], int]:
+    """Run one action and return ``(payload, exit_code)``.
+
+    Both the one-shot CLI and ``serve`` go through here, so the two transports
+    cannot drift into different validation or error behavior.
+    """
+    try:
+        if not args.run_dir:
+            raise BadInput(f"run_dir is required for action {action!r}")
+        run = RunDir(args.run_dir).ensure() if action == "init" else RunDir.open(args.run_dir)
+        payload = ACTIONS[action](run, args)
+    except ValidationFailed as exc:
+        return {**exc.payload(), "action": action, "errors": exc.errors}, EXIT_VALIDATION
+    except WorkerError as exc:
+        return {**exc.payload(), "action": action}, exc.exit_code
+    except Exception as exc:  # noqa: BLE001 — the plugin needs a JSON error, not a traceback
+        return {"ok": False, "action": action, "error": f"{type(exc).__name__}: {exc}"}, EXIT_INTERNAL
+    return payload, EXIT_OK
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="tradingagents.opencode_worker", add_help=True)
-    parser.add_argument("action", choices=sorted(ACTIONS))
-    parser.add_argument("--run-dir", required=True, help="the run directory")
+    parser.add_argument("action", choices=sorted([*ACTIONS, "serve"]))
+    parser.add_argument("--run-dir", default=None, help="the run directory (not used by serve)")
     parser.add_argument("--stage", default=None, help="stage key, for prompt/validate")
     parser.add_argument("--analyst", default=None, help="analyst key, for collect")
     parser.add_argument("--lenient", action="store_true", help="accept a degraded output with a warning")
@@ -552,27 +584,32 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
+    if args.action == "serve":
+        from tradingagents.opencode.server import serve
+
+        return serve()
+
+    if not args.run_dir:
+        parser.error("--run-dir is required")
+
     try:
-        args.json_args = _read_json_args(args.json_args)
+        json_args = _read_json_args(args.json_args)
     except WorkerError as exc:
         _result(exc.payload())
         return exc.exit_code
 
-    try:
-        run = RunDir.open(args.run_dir) if args.action != "init" else RunDir(args.run_dir).ensure()
-        payload = ACTIONS[args.action](run, args)
-    except ValidationFailed as exc:
-        _result({**exc.payload(), "errors": exc.errors})
-        return EXIT_VALIDATION
-    except WorkerError as exc:
-        _result(exc.payload())
-        return exc.exit_code
-    except Exception as exc:  # noqa: BLE001 — the plugin needs a JSON error, not a traceback
-        _result({"ok": False, "error": f"{type(exc).__name__}: {exc}"})
-        return EXIT_INTERNAL
-
+    payload, code = dispatch(
+        args.action,
+        WorkerArgs(
+            run_dir=args.run_dir,
+            stage=args.stage,
+            analyst=args.analyst,
+            lenient=args.lenient,
+            json_args=json_args,
+        ),
+    )
     _result(payload)
-    return EXIT_OK
+    return code
 
 
 if __name__ == "__main__":  # pragma: no cover

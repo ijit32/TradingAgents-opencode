@@ -62,6 +62,12 @@ export interface WorkerReply {
   readonly action?: string
   readonly error?: string
   readonly errors?: readonly string[]
+  /** Envelope fields present on `serve` replies. */
+  readonly protocol_version?: number
+  readonly id?: number | null
+  readonly exit_code?: number
+  readonly duration_ms?: number
+  readonly ready?: boolean
   readonly [key: string]: unknown
 }
 
