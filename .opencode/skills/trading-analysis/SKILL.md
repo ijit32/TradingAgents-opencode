@@ -6,7 +6,7 @@ description: >
   checkpoint the run so it can resume without repeating model calls, settle past
   decisions, write the report tree, and sweep a date grid. Use when the user asks
   to analyze a ticker, run a backtest, read a report, resume a run, or check a
-  run's status — or invokes /analyze, /backtest, or /report.
+  run's status — or invokes /ta-analyze, /ta-backtest, or /ta-report.
 ---
 
 # Trading analysis
@@ -18,16 +18,16 @@ validation. Nothing here fetches data past the analysis date.
 ## Run it
 
 ```text
-/analyze NVDA 2026-10-23
-/analyze BTC-USD 2026-10-23 --asset-type crypto --depth 2
-/analyze NVDA 2026-10-23 --model opencode/glm-5.3-flash-free
-/analyze NVDA 2026-10-23 --resume NVDA_2026-10-23_20261024_1152
-/analyze NVDA 2026-10-23 --rerun market_analyst
-/analyze NVDA 2026-10-23 --no-memory --no-html
-/backtest NVDA,AAPL 2026-01-02 2026-03-01 --every 7 --run-id q1
-/backtest NVDA 2026-01-02 2026-03-01 --run-id q1        # resume the same sweep
-/report                                                  # latest run's markdown
-/report NVDA_2026-10-22 --html
+/ta-analyze NVDA 2026-10-23
+/ta-analyze BTC-USD 2026-10-23 --asset-type crypto --depth 2
+/ta-analyze NVDA 2026-10-23 --model opencode/glm-5.3-flash-free
+/ta-analyze NVDA 2026-10-23 --resume NVDA_2026-10-23_20261024_1152
+/ta-analyze NVDA 2026-10-23 --rerun market_analyst
+/ta-analyze NVDA 2026-10-23 --no-memory --no-html
+/ta-backtest NVDA,AAPL 2026-01-02 2026-03-01 --every 7 --run-id q1
+/ta-backtest NVDA 2026-01-02 2026-03-01 --run-id q1     # resume the same sweep
+/ta-report                                               # latest run's markdown
+/ta-report NVDA_2026-10-22 --html
 ```
 
 The same runs are available as `trading_analyze` and `trading_backtest` for chat
@@ -63,7 +63,7 @@ any model call; allow-once-with-save makes later runs prompt-free.
 | `start`, `end` | Required `YYYY-MM-DD` bounds; `end` defaults to today. |
 | `--every` | Trading days between analysis dates. Defaults to `7`. |
 | `--run-id` | Sweep id. Reuse it to resume; generated when omitted. |
-| `--depth`, `--analysts`, `--model`, `--quick-model`, `--deep-model`, `--language` | As for `/analyze`. |
+| `--depth`, `--analysts`, `--model`, `--quick-model`, `--deep-model`, `--language` | As for `/ta-analyze`. |
 | `--no-html` | Skip the HTML page per cell. |
 
 ## What happens
@@ -154,7 +154,7 @@ the same ticker and date.
 
 The state log goes to `<results_dir>/<TICKER>/TradingAgentsStrategy_logs/`, and
 the decision to `<memory_log_path>` (`~/.tradingagents/memory/trading_memory.md`
-by default). `/report` returns the latest run's `complete_report.md`; pass
+by default). `/ta-report` returns the latest run's `complete_report.md`; pass
 `--html` for the rendered page.
 
 The pack key `social` is the sentiment analyst's; the stage stays
@@ -200,7 +200,7 @@ stay in the log.
   always run, on whatever reports exist.
 - Memory, reports, and backtests are in. A backtest retries a failed cell from
   a fresh run directory, not from its checkpoint; resume the cell's own run dir
-  with `/analyze` if you want to keep its completed stages.
+  with `/ta-analyze` if you want to keep its completed stages.
 - The free tier has a usage allowance. Once it is spent, every model call fails
   with `quota` and the message points at OpenCode Go; a paid or Go model avoids
   the wait but is no longer free.
@@ -217,7 +217,7 @@ stay in the log.
 
 | Symptom | Meaning | Action |
 |---|---|---|
-| `freetier` | Generation used a transport the gateway refuses | Keep the session path; run `/trading-probe` |
+| `freetier` | Generation used a transport the gateway refuses | Keep the session path; run `/ta-probe` |
 | `auth` | Missing or invalid provider key | Fix credentials; retry will not help |
 | `ratelimit` | Provider throttled | The run backs off; resume later |
 | `timeout` | No answer within `callTimeoutMs` | Resume the run; completed stages skip |
@@ -226,5 +226,5 @@ stay in the log.
 | `no <analyst> data could be collected` | Every vendor for that pack failed | Check the ticker and vendor keys; see `data/index.json` notes |
 | `<… unavailable>` in a pack | One feed failed; the rest of the pack is intact | Note the gap when summarizing; the analyst was told to lower confidence |
 
-`/trading-probe --mode text` is the fastest way to tell "model unavailable" from
+`/ta-probe --mode text` is the fastest way to tell "model unavailable" from
 "transport regressed": it is expected to fail with `403 FreeTierError`.

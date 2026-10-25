@@ -4,7 +4,7 @@ Reference for running TradingAgents outside OpenCode: the interactive CLI, the P
 package, Docker, and the provider setup each one needs.
 
 The OpenCode plugin is the primary interface in this repository; see
-[README.md](../README.md) for `/analyze`, `/backtest`, and `/report`. Everything below
+[README.md](../README.md) for `/ta-analyze`, `/ta-backtest`, and `/ta-report`. Everything below
 runs the same pipeline through LangGraph instead of the plugin's stage runner.
 
 ## Installation

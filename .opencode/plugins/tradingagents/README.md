@@ -8,7 +8,7 @@ a worker instead of being ported.
 
 | File | Role |
 |---|---|
-| `index.ts` | `Plugin.define`; registers `/analyze`, `/backtest`, `/report`, `/trading-probe`, `trading_analyze`, `trading_backtest`, `trading_report`, `trading_status`, `trading_probe` |
+| `index.ts` | `Plugin.define`; registers `/ta-analyze`, `/ta-backtest`, `/ta-report`, `/ta-probe`, `trading_analyze`, `trading_backtest`, `trading_report`, `trading_status`, `trading_probe` |
 | `config.ts` | Options, defaults, `provider/model[#variant]` parsing, per-stage model selection, run root |
 | `types.ts` | Pipeline, checkpoint, and worker-reply types |
 | `worker.ts` | Spawns `uv run python -m tradingagents.opencode_worker`; maps exit codes to errors |
@@ -51,12 +51,12 @@ Observed cost of that wrapper: **1.8–2.4 s** per call, dominated by session cr
 Reproduce:
 
 ```text
-/trading-probe                 # session path, the default
-/trading-probe --parallel 4    # concurrency headroom
-/trading-probe --mode text     # expected 403, proves the gate
+/ta-probe                      # session path, the default
+/ta-probe --parallel 4         # concurrency headroom
+/ta-probe --mode text          # expected 403, proves the gate
 ```
 
-Keep `/trading-probe --mode text` in the toolbox: it is the fastest way to tell "model is
+Keep `/ta-probe --mode text` in the toolbox: it is the fastest way to tell "model is
 unavailable" apart from "transport regressed".
 
 ## Phase 2: the four analysts
@@ -68,11 +68,11 @@ up to `concurrency`. Phase 3 appends the decision stages; the loop itself never 
 the stage list comes from the worker's `plan` action rather than from a list in TypeScript.
 
 ```text
-/analyze NVDA 2026-10-23                       # all four analysts
-/analyze NVDA 2026-10-23 --analysts market,news
-/analyze NVDA 2026-10-23 --depth 2             # more debate rounds later
-/analyze NVDA 2026-10-23 --resume NVDA_2026-…  # skip completed stages
-/analyze NVDA 2026-10-23 --rerun market_analyst
+/ta-analyze NVDA 2026-10-23                    # all four analysts
+/ta-analyze NVDA 2026-10-23 --analysts market,news
+/ta-analyze NVDA 2026-10-23 --depth 2          # more debate rounds later
+/ta-analyze NVDA 2026-10-23 --resume NVDA_2026-…  # skip completed stages
+/ta-analyze NVDA 2026-10-23 --rerun market_analyst
 ```
 
 Each analyst has one pack and one prompt builder, both taken from the graph's own code:
@@ -221,7 +221,7 @@ header shows.
 - the run's decision in the memory log, as a pending entry
 
 It is idempotent: a resume rewrites the reports, overwrites the state log, and `store_decision`
-refuses a duplicate entry. Read them with `trading_report` or `/report`.
+refuses a duplicate entry. Read them with `trading_report` or `/ta-report`.
 
 ### Backtest
 
@@ -233,8 +233,8 @@ on the last cell settles the tail, then `backtest-summary` scores the log exactl
 `run_backtest` reports it.
 
 ```text
-/backtest NVDA,AAPL 2026-01-02 2026-03-01 --every 7 --run-id q1
-/backtest NVDA 2026-01-02 2026-03-01 --run-id q1 --no-html   # resume; logged cells skip
+/ta-backtest NVDA,AAPL 2026-01-02 2026-03-01 --every 7 --run-id q1
+/ta-backtest NVDA 2026-01-02 2026-03-01 --run-id q1 --no-html   # resume; logged cells skip
 ```
 
 A failed cell is reported and the sweep continues; the cell is *not* logged, so the next run of
@@ -304,7 +304,7 @@ the vendors are the part that rate-limits.
 
 ## Safety and environment
 
-The plugin asks before it shells out: `/analyze` and `/backtest` call
+The plugin asks before it shells out: `/ta-analyze` and `/ta-backtest` call
 `ctx.permission.assert` with action `bash` and the resource
 `uv run python -m tradingagents.opencode_worker`. A deny stops the run before any model
 call; allow-once-with-save writes that command to the project's allow list.

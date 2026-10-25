@@ -540,7 +540,7 @@ interface ResolvedRunDir {
 /**
  * Confine an explicit run directory to the plugin's run root.
  *
- * `/analyze --run-dir` may only reach a run this plugin created. Without this,
+ * `/ta-analyze --run-dir` may only reach a run this plugin created. Without this,
  * a prompt could point the worker at any directory on disk and have it write
  * reports, a memory entry, and a state log there.
  */

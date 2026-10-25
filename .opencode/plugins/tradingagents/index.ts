@@ -7,7 +7,7 @@
  * without repeating model calls.
  *
  * Registered here:
- *   `/analyze`          — run the pipeline from a command line
+ *   `/ta-analyze`       — run the pipeline from a command line
  *   `trading_analyze`   — the same run, callable from chat
  *   `trading_backtest`  — a sweep over a date grid, one isolated memory log
  *   `trading_report`    — the written report of a finished run
@@ -532,9 +532,9 @@ export default Plugin.define({
 
     const commandRegistration = await ctx.command.transform((editor) => {
       editor.add({
-        name: "analyze",
+        name: "ta-analyze",
         description:
-          "Run the TradingAgents pipeline: /analyze NVDA 2026-10-23 [--depth 2] [--model provider/model]",
+          "Run the TradingAgents pipeline: /ta-analyze NVDA 2026-10-23 [--depth 2] [--model provider/model]",
         execute: async ({ sessionID, prompt }) => {
           const input = parseAnalysisText(prompt.text ?? "")
           const progress = async (message: string): Promise<void> => {
@@ -553,9 +553,9 @@ export default Plugin.define({
       })
 
       editor.add({
-        name: "backtest",
+        name: "ta-backtest",
         description:
-          "Run a sweep: /backtest NVDA,AAPL 2026-01-02 2026-03-01 [--every 7] [--run-id id]",
+          "Run a sweep: /ta-backtest NVDA,AAPL 2026-01-02 2026-03-01 [--every 7] [--run-id id]",
         execute: async ({ sessionID, prompt }) => {
           const input = parseBacktestText(prompt.text ?? "")
           const progress = async (message: string): Promise<void> => {
@@ -574,8 +574,8 @@ export default Plugin.define({
       })
 
       editor.add({
-        name: "report",
-        description: "Show a run's written report: /report [run-id] [--html]",
+        name: "ta-report",
+        description: "Show a run's written report: /ta-report [run-id] [--html]",
         execute: async ({ sessionID, prompt }) => {
           const tokens = (prompt.text ?? "").split(/\s+/).filter(Boolean)
           const format = tokens.includes("--html") ? "html" : "md"
@@ -593,7 +593,7 @@ export default Plugin.define({
       })
 
       editor.add({
-        name: "trading-probe",
+        name: "ta-probe",
         description:
           "Check that OpenCode generation works for a model (default: the plugin's free quick model)",
         execute: async ({ sessionID, prompt }) => {

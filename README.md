@@ -4,10 +4,10 @@
 
 # TradingAgents for OpenCode
 
-Run the TradingAgents multi-agent trading pipeline from inside OpenCode. `/analyze NVDA
+Run the TradingAgents multi-agent trading pipeline from inside OpenCode. `/ta-analyze NVDA
 2026-10-23` collects point-in-time data, calls a model for every stage, validates each
 report, and writes the same report tree the LangGraph pipeline produces. Free OpenCode
-models work out of the box; `/backtest` sweeps a date grid and `/report` reads a finished
+models work out of the box; `/ta-backtest` sweeps a date grid and `/ta-report` reads a finished
 run without calling a model.
 
 The plugin lives in this repository under `.opencode/plugins/tradingagents` and is
@@ -66,30 +66,30 @@ allow it once and save, and later runs start without a prompt. Check the transpo
 a long run:
 
 ```text
-/trading-probe
-/trading-probe --parallel 4
+/ta-probe
+/ta-probe --parallel 4
 ```
 
-The probe is expected to pass on the session path. `/trading-probe --mode text` is a
+The probe is expected to pass on the session path. `/ta-probe --mode text` is a
 diagnostic: the gateway refuses it with `403 FreeTierError`, which separates "model
 unavailable" from "transport regressed".
 
 ## Quickstart
 
 ```text
-/analyze NVDA 2026-10-23
-/analyze NVDA 2026-10-23 --analysts market,news --depth 2
-/analyze BTC-USD 2026-10-23 --asset-type crypto
-/analyze NVDA 2026-10-23 --resume NVDA_2026-10-23_20261024_1152
-/report
-/backtest NVDA,AAPL 2026-01-02 2026-03-01 --every 7 --run-id q1
+/ta-analyze NVDA 2026-10-23
+/ta-analyze NVDA 2026-10-23 --analysts market,news --depth 2
+/ta-analyze BTC-USD 2026-10-23 --asset-type crypto
+/ta-analyze NVDA 2026-10-23 --resume NVDA_2026-10-23_20261024_1152
+/ta-report
+/ta-backtest NVDA,AAPL 2026-01-02 2026-03-01 --every 7 --run-id q1
 ```
 
 The same runs are available as tools for chat use: `trading_analyze`, `trading_backtest`,
 `trading_report`, `trading_status`, and `trading_probe`.
 `trading_report` and `trading_status` read the run directory and never call a model.
 
-### `/analyze` arguments
+### `/ta-analyze` arguments
 
 | Argument | Meaning |
 |---|---|
@@ -108,7 +108,7 @@ The same runs are available as tools for chat use: `trading_analyze`, `trading_b
 | `--no-memory` | Skip settlement and decision recording for this run. |
 | `--no-html` | Write only `complete_report.md`. |
 
-### `/backtest` arguments
+### `/ta-backtest` arguments
 
 | Argument | Meaning |
 |---|---|
@@ -116,7 +116,7 @@ The same runs are available as tools for chat use: `trading_analyze`, `trading_b
 | `start`, `end` | Required `YYYY-MM-DD` bounds; `end` defaults to today. |
 | `--every` | Trading days between analysis dates. Defaults to `7`. |
 | `--run-id` | Sweep id. Reuse it to resume; generated when omitted. |
-| `--depth`, `--analysts`, `--model`, `--quick-model`, `--deep-model`, `--language` | As for `/analyze`. |
+| `--depth`, `--analysts`, `--model`, `--quick-model`, `--deep-model`, `--language` | As for `/ta-analyze`. |
 | `--no-html` | Skip the HTML page per cell. |
 
 ## How a run works
@@ -200,7 +200,7 @@ default. A backtest sets both per sweep, so its cells never touch your own log.
 ```
 
 The state log goes to `<resultsDir>/<TICKER>/TradingAgentsStrategy_logs/`, and the decision
-to `<memoryLogPath>`. `/report` returns the latest run's `complete_report.md`; pass
+to `<memoryLogPath>`. `/ta-report` returns the latest run's `complete_report.md`; pass
 `--html` for the rendered page, or a run id for an older run.
 
 A pack that could not reach a vendor keeps an `<… unavailable>` placeholder and a note in
@@ -240,7 +240,7 @@ cells in the log.
 
 | Symptom | Meaning | Action |
 |---|---|---|
-| `freetier` | Generation used a transport the gateway refuses | Keep the session path; run `/trading-probe` |
+| `freetier` | Generation used a transport the gateway refuses | Keep the session path; run `/ta-probe` |
 | `auth` | Missing or invalid provider key | Fix credentials; retry will not help |
 | `ratelimit` | Provider throttled | The run backs off; resume later |
 | `timeout` | No answer within `callTimeoutMs` | Resume the run; completed stages skip |
@@ -270,7 +270,7 @@ cells in the log.
 - [`.opencode/plugins/tradingagents/README.md`](.opencode/plugins/tradingagents/README.md)
   — architecture, phase results, worker protocol, and the measured runs.
 - [`.opencode/skills/trading-analysis/SKILL.md`](.opencode/skills/trading-analysis/SKILL.md)
-  — the agent-facing contract for `/analyze`, `/backtest`, and `/report`.
+  — the agent-facing contract for `/ta-analyze`, `/ta-backtest`, and `/ta-report`.
 - [`docs/cli.md`](docs/cli.md) — the CLI, Python API, Docker, and provider setup, for runs
   outside OpenCode.
 - [`CHANGELOG.md`](CHANGELOG.md) — release notes.
