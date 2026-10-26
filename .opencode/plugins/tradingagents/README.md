@@ -314,6 +314,15 @@ Defaults: depth 1, one debate round, concurrency 4 (one wave for the four analys
 DeepSeek for both tiers. A paid or Go model works by naming it in `quickModel`/`deepModel`; the
 generation code does not care which tier it is.
 
+India needs no configuration either. A `.NS` or `.BO` suffix is what marks an NSE or BSE
+listing — a bare symbol stays US — and from that suffix the prompts and packs get INR
+reporting and the India macro, news and social coverage on their own. For India, the only
+optional key is `FRED_API_KEY`, used for the India CPI, g-sec, IIP and GDP series; without it
+those series say they are missing. Nothing in the protocol changes: the worker protocol,
+`protocol.schema.json` and the generated types are untouched, and a US ticker behaves as
+before. A portfolio given as an object takes an ISO currency code, and an INR book on an NSE
+listing is labelled in INR rather than converted.
+
 `memory` settles past decisions and records this one; `html` writes `complete_report.html`
 beside the markdown. `memoryLogPath` and `resultsDir` override the repo defaults
 (`~/.tradingagents/memory/trading_memory.md` and `~/.tradingagents/logs`); empty means the

@@ -186,9 +186,37 @@ ticker. Company identity and the alpha benchmark resolve automatically per marke
 
 - US: `AAPL`, `SPY`
 - Hong Kong: `0700.HK` · Tokyo: `7203.T` · London: `AZN.L`
-- India: `RELIANCE.NS`, `.BO` · Canada: `.TO` · Australia: `.AX`
+- Canada: `.TO` · Australia: `.AX`
 - China A-shares: Shanghai `.SS`, Shenzhen `.SZ` (e.g. `600519.SS` for Kweichow Moutai)
 - Crypto: `BTC-USD`, `ETH-USD`
+
+### India (NSE and BSE)
+
+An NSE listing ends in `.NS` (`RELIANCE.NS`, `TCS.NS`) and is the better choice. A BSE
+listing ends in `.BO` (`RELIANCE.BO`) and works, but Yahoo's BSE price history is
+sparse; when it is too sparse to price honestly, the run says so instead of pricing
+from a handful of bars, and names the NSE ticker when it can resolve one. The suffix
+decides the market, so a bare symbol stays US: `TCS` is the US Container Store,
+`TCS.NS` is Tata Consultancy.
+
+Symbols with `&` work: `M&M.NS`, `M&MFIN.NS`, `J&KBANK.NS`. The Python validator and
+the plugin's ticker check both accept them, the raw symbol is passed to the vendors,
+and no ticker ever reaches a shell.
+
+Quotes, technicals and the company profile come from Yahoo; the profile is
+present-day, so a historical run withholds it. Statements, shareholding and the filing
+record come from NSE, with XBRL from the integrated filings where the company filed it.
+This is exchange-published data and Yahoo prices, not a real-time exchange feed, and
+nothing here connects to a broker.
+
+An NSE/BSE run is told to report every price, target, stop and position size in INR,
+never converted to another currency. A portfolio file names its currency as an ISO
+code, and a USD book on an INR instrument is told that both currencies are in play
+(see "Current holdings").
+
+Two gaps are named rather than filled: StockTwits does not list NSE/BSE instruments,
+and the RBI repo rate has no free point-in-time source, so a run reports that series
+as not covered instead of printing today's rate.
 
 ## TradingAgents Package
 
@@ -262,6 +290,22 @@ that has ended but has not been filed yet is not served, and a figure restated l
 reads as first reported. Apple's 2008 total assets were filed as $39.6B and restated to
 $36.2B in 2010, so a run dated in between reads $39.6B. EDGAR needs no account or API key.
 
+For an NSE/BSE listing, statements and shareholding are read from NSE and gated by
+their broadcast date, so a run dated in the past reads only what had been published by
+then; the statement header carries the broadcast timestamp the filing was selected
+under. Consolidated statements are the default, and a filing whose own basis differs is
+reported with that basis rather than relabelled. The latest period's P&L is served with
+the latest annual balance sheet and cash flow where XBRL exists. Not every filing
+carries XBRL — a results filing can lack it while a later integrated filing has it —
+and a filing with no readable instance is named as such, with no figures invented in
+its place. Values are absolute INR as filed, and a later restatement does not rewrite
+an earlier filing.
+
+The free structured history begins with the integrated filings index in April 2025;
+earlier periods are named as unavailable rather than backfilled. Announcements are
+searched 90 days back by default. A BSE-only listing has no reachable NSE filing feed,
+so a `.BO` run may have prices and news but names the filing gap.
+
 Other companies' statements come from Yahoo Finance, which dates a statement by the period
 it covers rather than by when it was published. A run dated today reads them; a run dated
 in the past is told they are withheld, since Yahoo cannot say which figures were public by
@@ -301,6 +345,11 @@ _, decision = ta.propagate("NVDA", "2026-09-01", portfolio=portfolio)
 ```
 
 The CLI takes the same content as a JSON file: `tradingagents --portfolio my_book.json`.
+
+`currency` is an ISO code from a short allowlist — `USD`, `INR`, and the other
+currencies the modelled markets quote in; `"inr"` is normalized to `INR`. A USD book on
+`RELIANCE.NS` renders both currencies and says they are not converted. An unknown label
+such as `"dollars"` is rejected before the run starts, when it can still be fixed.
 
 An empty `positions` list means a flat book, which is different from passing nothing. A
 run without a portfolio is never treated as flat.

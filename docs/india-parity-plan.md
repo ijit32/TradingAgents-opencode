@@ -1,7 +1,7 @@
 # India (NSE/BSE) parity — implementation plan
 
-Status: in progress. Phases 0, 1, 2a, 2c, 3, 4, 5 and 6 have shipped; 2b is
-deferred behind the Phase 2a gate and §13; Phase 7 remains.
+Status: shipped. Phases 0, 1, 2a, 2c, 3, 4, 5, 6 and 7 are in the tree; 2b is
+deferred behind the Phase 2a gate and §13.
 
 Scope: make a run on an NSE or BSE listing as complete as a US run — prices,
 technicals, fundamentals as filed, company news, exchange filings, social
@@ -703,6 +703,18 @@ text was already currency-agnostic and is now guarded by a test.
 Done when: `docs/cli.md` has no claim the code does not keep, and the root
 README is still OpenCode-only.
 
+**Shipped 2026-10-26.** `docs/cli.md` now has an India subsection under "Markets
+and tickers" (suffix rule, `.BO` sparse-history gap, `&` symbols, live vs filed,
+INR reporting, the StockTwits and repo-rate gaps), an NSE/BSE paragraph beside
+EDGAR in "Fundamentals as filed" (broadcast-date gate, consolidated default,
+latest quarterly P&L plus latest annual balance sheet/cash flow, filings without
+XBRL named, absolute INR, April 2025 structured-history start), and a portfolio
+currency paragraph. The plugin README states that India needs no configuration
+and the protocol is untouched. The changelog gained the missing market-coverage,
+fundamentals and IST-window bullets plus the `&` tickers entry. `AGENTS.md`
+remains untracked, the root README is still OpenCode-only, and §10's table now
+names the tests that exist rather than earlier filenames.
+
 ---
 
 ## 7. Ticker handling
@@ -790,30 +802,32 @@ unless a test is marked `integration`.
 | File | Covers |
 |---|---|
 | `tests/test_markets.py` | suffix → market, currency, exchange; `TCS` vs `TCS.NS` |
-| `tests/test_ticker_ampersand.py` | `&` accepted by Python and both TS regexes; `..`, `/`, NUL still rejected |
+| `tests/test_ticker_ampersand.py` | `&` accepted by the Python guard; `..`, `/`, NUL still rejected. The plugin half is `test/ticker.test.ts` |
 | `tests/test_ist_window.py` | 23:30 IST item on `trade_date` included; 00:15 IST next day excluded; UTC-boundary regression |
 | `tests/test_nse_client.py` | throttle spacing, 429 retry once, cache TTL, breaker opens after 3 failures |
-| `tests/test_nse_filings_index.py` | pagination walk, symbol filter, Original over Revised, latest filing ≤ date |
-| `tests/test_nse_xbrl_parse.py` | fixtures: quarterly P&L, dimensional facts ignored, Q vs 9M context selection, annual balance sheet, units |
-| `tests/test_nse_filings_unstructured.py` | `RELIANCE` FY25 case: filing date served, PDF link present, no invented figures |
+| `tests/test_nse_filings.py` | pagination walk, symbol filter, Original over Revised, latest filing ≤ date |
+| `tests/test_nse_xbrl.py` | fixtures: quarterly P&L, dimensional facts ignored, Q vs 9M context selection, annual balance sheet, units |
+| `tests/test_nse_fundamentals.py` | `RELIANCE` FY25 unstructured case: filing date served, PDF link present, no invented figures |
 | `tests/test_nse_pit.py` | `intimDt` gate; trade date shown beside filing date |
 | `tests/test_nse_shareholding.py` | `broadcastDate` gate; promoter % row |
-| `tests/test_india_news.py` | query builder with `&`; dedupe; window filter; GDELT 3-month note; `after:`/`before:` format |
+| `tests/test_india_news*.py` | composition and routing (`test_india_news`), query builder with `&` (`_query`), GDELT 3-month note (`_gdelt`), Google date window (`_google`), publisher feeds (`_publishers`) |
 | `tests/test_india_macro.py` | alias table; missing FRED key degrades; repo-rate notice |
-| `tests/test_india_social.py` | India subreddits; no StockTwits call for `.NS`; `TCS` US unaffected |
+| `tests/test_stocktwits_india.py` | no StockTwits call for `.NS`; `TCS` US unaffected. India subreddit coverage lives in `test_reddit_fallback.py` and `test_opencode_worker.py` |
 | `tests/test_instrument_currency.py` | INR quote line for `.NS`/`.BO`/`^NSEI`; US prompt byte-identical; unverified `.L`/`BRK.B` gets no claim; schema text never says USD |
 | `tests/test_portfolio_context.py` | ISO allowlist; INR accepted and normalized; USD book on INR instrument states both; no invented currency |
 | `tests/test_reflection_currency.py` | alpha names the benchmark currency; US two-line prompt unchanged; unverified benchmark never assumed USD; settlement threads both codes |
-| `tests/test_india_no_us_regression.py` | snapshot: `AAPL` fundamentals, statements, news, macro unchanged |
+| `tests/test_india_no_us_regression.py` | US paths unchanged: every India vendor declines `AAPL`/`cpi` before a request; `AAPL` news and fundamentals still reach the US chain |
 | `tests/test_layering.py` | still only `dataflows` imports vendor libs |
-| `.opencode/plugins/tradingagents/*.test.ts` | regex parity, `M&M.NS` accepted |
+| `.opencode/plugins/tradingagents/test/*.test.ts` | regex parity, `M&M.NS` accepted |
 
-Integration tests (marked, skipped without network): one live `RELIANCE.NS`
-pipeline, one `M&M.NS` price run, one `RELIANCE.BO` sparse-window run.
+Live checks are manual, not marked integration tests: `scripts/probe_india_sources.py`
+for the vendors and the acceptance gate below for a full run. No `RELIANCE.NS`,
+`M&M.NS` or `RELIANCE.BO` integration test exists in the suite, so a CI-only
+failure means a unit contract broke, not that the network was refused.
 
 Acceptance gate for the whole plan:
 
-1. `uv run pytest` green, including the no-US-regression snapshot.
+1. `uv run pytest` green, including the no-US-regression contract test.
 2. `bun test` and `bun run typecheck` green.
 3. `/ta-analyze RELIANCE.NS 2025-06-02` produces dated filings, structured
    figures where XBRL exists, dated news, INR figures, and no USD phrasing.
@@ -836,8 +850,10 @@ Acceptance gate for the whole plan:
 5. Phases 5–6: `feat(india): macro and INR reporting`.
 6. Phase 7 docs and changelog last, so the docs describe what shipped.
 
-Every phase keeps a live integration test that is skipped when the network is
-refused, so a CI-only failure means "no network", not "vendor broke".
+Live source checks are the probe script and the acceptance gate, not tests in
+the suite: everything committed runs offline under the autouse `_no_network`
+fixture, so a CI-only failure means a contract broke, not that the network was
+refused.
 
 ---
 
