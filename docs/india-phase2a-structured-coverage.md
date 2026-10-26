@@ -4,10 +4,10 @@ Run date: **2026-10-25** (IST). Measurement only: no parser, no vendor
 registration, no product code.
 
 Script: `scripts/india_coverage_audit.py` (stdlib + `requests` + the repo's
-`nse.client` / `nse.issuer` / `ist`). Raw evidence:
-`docs/india-phase2a-artifacts/` (`coverage.json`, one
-`coverage-<SYMBOL>.json` per issuer, and the first parseable quarter plus the
-annual instance per issuer under `instances/`).
+`nse.client` / `nse.issuer` / `ist`). Raw evidence is written to
+`artifacts/india-phase2a/` (gitignored, so it is not in the tree):
+`coverage.json`, one `coverage-<SYMBOL>.json` per issuer, and the first
+parseable quarter plus the annual instance per issuer under `instances/`.
 
 ## 1. Method and exact endpoints
 
@@ -265,7 +265,7 @@ the gate and do not build on hope.
 .venv/bin/python scripts/india_coverage_audit.py --refresh  # recompute all
 ```
 
-The script writes each issuer's JSON as soon as it finishes, then rewrites
-`coverage.json` with the summary. If the circuit breaker opens it stops and
-leaves the partial files in place. Cached JSON lives for 7 days and cached XBRL
-for 90 days, so a rerun is cheap.
+The script writes each issuer's JSON under `artifacts/india-phase2a/` as soon as
+it finishes, then rewrites `coverage.json` with the summary. If the circuit
+breaker opens it stops and leaves the partial files in place. Cached JSON lives
+for 7 days and cached XBRL for 90 days, so a rerun is cheap.

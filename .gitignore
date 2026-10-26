@@ -224,3 +224,6 @@ __marimo__/
 # Enterprise env file (secrets) and generated run reports
 .env.enterprise
 reports/
+
+# Generated coverage audits (scripts/india_coverage_audit.py) — not source
+/artifacts/

@@ -20,7 +20,8 @@ Usage::
     .venv/bin/python scripts/india_coverage_audit.py
     .venv/bin/python scripts/india_coverage_audit.py --refresh   # ignore saved files
 
-Artifacts land in ``docs/india-phase2a-artifacts/``.
+Artifacts land in ``artifacts/india-phase2a/`` (gitignored): one JSON file per
+issuer plus the XBRL instances it parsed.
 """
 
 from __future__ import annotations
@@ -37,7 +38,7 @@ from tradingagents.dataflows.ist import ist_date
 from tradingagents.dataflows.vendors.nse import client, issuer
 
 ROOT = Path(__file__).resolve().parent.parent
-OUT_DIR = ROOT / "docs" / "india-phase2a-artifacts"
+OUT_DIR = ROOT / "artifacts" / "india-phase2a"
 INSTANCE_DIR = OUT_DIR / "instances"
 
 # The fixed measurement window. Filing feeds are asked for the whole span once
