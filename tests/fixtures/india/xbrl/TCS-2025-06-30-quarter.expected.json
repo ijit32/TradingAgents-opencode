@@ -1,0 +1,25 @@
+{
+  "basis": "consolidated",
+  "taxonomy": "in-capmkt",
+  "period_start": "2025-04-01",
+  "period_end": "2025-06-30",
+  "income_statement": {
+    "Revenue": 634370000000.0,
+    "Total Income": 650970000000.0,
+    "Other Income": 16600000000.0,
+    "Total Expenses": 481180000000.0,
+    "Finance Costs": 1950000000.0,
+    "Depreciation & Amortisation": 13610000000.0,
+    "Profit Before Tax": 169790000000.0,
+    "Tax": 41600000000.0,
+    "Net Profit": 128190000000.0,
+    "Basic EPS": 35.27,
+    "Diluted EPS": 35.27
+  },
+  "balance_sheet": {},
+  "cashflow": {},
+  "units": {
+    "Basic EPS": "INR/share",
+    "Diluted EPS": "INR/share"
+  }
+}

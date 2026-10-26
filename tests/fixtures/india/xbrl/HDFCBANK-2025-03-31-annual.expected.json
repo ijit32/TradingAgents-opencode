@@ -1,0 +1,37 @@
+{
+  "basis": "consolidated",
+  "taxonomy": "in-capmkt",
+  "period_start": "2024-04-01",
+  "period_end": "2025-03-31",
+  "income_statement": {
+    "Total Income": 4709159300000.0,
+    "Interest Earned": 3363674300000.0,
+    "Other Income": 1345485000000.0,
+    "Expenses Excluding Provisions and Contingencies": 3604992700000.0,
+    "Interest Expended": 1838942000000.0,
+    "Profit Before Tax": 935941300000.0,
+    "Tax": 228018800000.0,
+    "Net Profit": 707922500000.0,
+    "Basic EPS": 92.81,
+    "Diluted EPS": 92.39
+  },
+  "balance_sheet": {
+    "Total Assets": 43924174200000.0,
+    "Cash and Balances with Reserve Bank of India": 1443902500000.0,
+    "Investments": 11864728900000.0,
+    "Advances": 27249381600000.0,
+    "Deposits": 27108982300000.0,
+    "Borrowings": 6346055700000.0,
+    "Share Capital": 7652200000.0,
+    "Capital and Liabilities": 43924174200000.0
+  },
+  "cashflow": {
+    "Operating Activities": 1272418400000.0,
+    "Investing Activities": -38506400000.0,
+    "Financing Activities": -1024775400000.0
+  },
+  "units": {
+    "Basic EPS": "INR/share",
+    "Diluted EPS": "INR/share"
+  }
+}

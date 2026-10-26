@@ -1,0 +1,86 @@
+[
+  {
+    "an_dt": "30-Apr-2025 21:49:34",
+    "attchmntFile": "https://nsearchives.nseindia.com/corporate/SYNT_30042025214934_ESOP.pdf",
+    "attchmntText": "Synthetic fixture: intimation of allotment of equity shares under an employee stock option scheme.",
+    "desc": "ESOP/ESOS/ESPS",
+    "dt": "30042025214934",
+    "hasXbrl": false,
+    "seq_id": "100000001",
+    "sm_name": "Reliance Industries Limited",
+    "sort_date": "2025-04-30 21:49:34",
+    "symbol": "RELIANCE"
+  },
+  {
+    "an_dt": "26-Apr-2025 00:15:00",
+    "attchmntFile": "https://nsearchives.nseindia.com/corporate/SYNT_26042025001500_GU.pdf",
+    "attchmntText": "Synthetic fixture: a filing just after midnight IST, which is still the previous UTC day.",
+    "desc": "General Updates",
+    "dt": "26042025001500",
+    "hasXbrl": false,
+    "seq_id": "100000002",
+    "sm_name": "Reliance Industries Limited",
+    "sort_date": "2025-04-26 00:15:00",
+    "symbol": "RELIANCE"
+  },
+  {
+    "an_dt": "25-Apr-2025 20:10:43",
+    "attchmntFile": "https://nsearchives.nseindia.com/corporate/SYNT_25042025201043_MR.pdf",
+    "attchmntText": "Synthetic fixture: media release accompanying the audited results.",
+    "desc": "Press Release",
+    "dt": "25042025201043",
+    "hasXbrl": false,
+    "seq_id": "100000003",
+    "sm_name": "Reliance Industries Limited",
+    "sort_date": "2025-04-25 20:10:43",
+    "symbol": "RELIANCE"
+  },
+  {
+    "an_dt": "25-Apr-2025 20:05:15",
+    "attchmntFile": "https://nsearchives.nseindia.com/corporate/SYNT_25042025200515_FR.pdf",
+    "attchmntText": "Synthetic fixture: audited financial results for the year ended 31 March 2025.",
+    "desc": "Outcome of Board Meeting",
+    "dt": "25042025200515",
+    "hasXbrl": false,
+    "seq_id": "100000004",
+    "sm_name": "Reliance Industries Limited",
+    "sort_date": "2025-04-25 20:05:15",
+    "symbol": "RELIANCE"
+  },
+  {
+    "an_dt": "25-Apr-2025 20:05:15",
+    "attchmntFile": "https://nsearchives.nseindia.com/corporate/SYNT_25042025200515_DIV.pdf",
+    "attchmntText": "Synthetic fixture: recommendation of a final dividend for the year ended 31 March 2025.",
+    "desc": "Dividend",
+    "dt": "25042025200515",
+    "hasXbrl": false,
+    "seq_id": "100000005",
+    "sm_name": "Reliance Industries Limited",
+    "sort_date": "2025-04-25 20:05:15",
+    "symbol": "RELIANCE"
+  },
+  {
+    "an_dt": "22-Apr-2025 22:10:36",
+    "attchmntFile": "https://nsearchives.nseindia.com/corporate/SYNT_22042025221036_CALL.pdf",
+    "attchmntText": "Synthetic fixture: transcript of the earnings conference call.",
+    "desc": "Analysts/Institutional Investor Meet/Con. Call Updates",
+    "dt": "22042025221036",
+    "hasXbrl": false,
+    "seq_id": "100000006",
+    "sm_name": "Reliance Industries Limited",
+    "sort_date": "2025-04-22 22:10:36",
+    "symbol": "RELIANCE"
+  },
+  {
+    "an_dt": "21-Apr-2025 18:12:44",
+    "attchmntFile": "https://nsearchives.nseindia.com/corporate/SYNT_21042025181244_FR_XBRL.xml",
+    "attchmntText": "Synthetic fixture: a results filing that carries a structured instance.",
+    "desc": "Outcome of Board Meeting",
+    "dt": "21042025181244",
+    "hasXbrl": true,
+    "seq_id": "100000007",
+    "sm_name": "Reliance Industries Limited",
+    "sort_date": "2025-04-21 18:12:44",
+    "symbol": "RELIANCE"
+  }
+]

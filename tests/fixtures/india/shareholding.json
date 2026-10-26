@@ -1,0 +1,68 @@
+[
+  {
+    "broadcastDate": "20-JAN-2027 15:00:00",
+    "date": "31-DEC-2026",
+    "employeeTrusts": "0",
+    "name": "Reliance Industries Limited",
+    "pr_and_prgrp": "50.41",
+    "public_val": "49.59",
+    "revisedData": "N",
+    "symbol": "RELIANCE",
+    "xbrl": "https://nsearchives.nseindia.com/corporate/xbrl/SHP_SYNT_1742992_WEB.xml"
+  },
+  {
+    "broadcastDate": "21-OCT-2026 16:25:15",
+    "date": "30-SEP-2026",
+    "employeeTrusts": "0",
+    "name": "Reliance Industries Limited",
+    "pr_and_prgrp": "50.44",
+    "public_val": "49.56",
+    "revisedData": "N",
+    "symbol": "RELIANCE",
+    "xbrl": "https://nsearchives.nseindia.com/corporate/xbrl/SHP_SYNT_1742991_WEB.xml"
+  },
+  {
+    "broadcastDate": "16-JUL-2026 19:24:44",
+    "date": "30-JUN-2026",
+    "employeeTrusts": "0",
+    "name": "Reliance Industries Limited",
+    "pr_and_prgrp": "50.48",
+    "public_val": "49.52",
+    "revisedData": "N",
+    "symbol": "RELIANCE",
+    "xbrl": "https://nsearchives.nseindia.com/corporate/xbrl/SHP_SYNT_1694620_WEB.xml"
+  },
+  {
+    "broadcastDate": "21-APR-2026 13:25:14",
+    "date": "31-MAR-2026",
+    "employeeTrusts": "0",
+    "name": "Reliance Industries Limited",
+    "pr_and_prgrp": "50.52",
+    "public_val": "49.48",
+    "revisedData": "N",
+    "symbol": "RELIANCE",
+    "xbrl": "https://nsearchives.nseindia.com/corporate/xbrl/SHP_SYNT_1657300_WEB.xml"
+  },
+  {
+    "broadcastDate": "21-JAN-2026 19:13:20",
+    "date": "31-DEC-2025",
+    "employeeTrusts": "0",
+    "name": "Reliance Industries Limited",
+    "pr_and_prgrp": "50.31",
+    "public_val": "49.69",
+    "revisedData": "N",
+    "symbol": "RELIANCE",
+    "xbrl": "https://nsearchives.nseindia.com/corporate/xbrl/SHP_SYNT_1601004_WEB.xml"
+  },
+  {
+    "broadcastDate": "17-OCT-2025 20:16:56",
+    "date": "30-SEP-2025",
+    "employeeTrusts": "0.01",
+    "name": "Reliance Industries Limited",
+    "pr_and_prgrp": "50.28",
+    "public_val": "49.71",
+    "revisedData": "N",
+    "symbol": "RELIANCE",
+    "xbrl": "https://nsearchives.nseindia.com/corporate/xbrl/SHP_SYNT_1554002_WEB.xml"
+  }
+]

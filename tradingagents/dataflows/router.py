@@ -18,6 +18,12 @@ from tradingagents.dataflows.vendors.alpha_vantage import (
     get_stock as get_alpha_vantage_stock,
 )
 from tradingagents.dataflows.vendors.fred import get_macro_data as get_fred_macro_data
+from tradingagents.dataflows.vendors.nse.fundamentals import (
+    get_fundamentals as get_nse_fundamentals,
+)
+from tradingagents.dataflows.vendors.nse.pit import (
+    get_insider_transactions as get_nse_insider_transactions,
+)
 from tradingagents.dataflows.vendors.polymarket import (
     get_prediction_markets as get_polymarket_prediction_markets,
 )
@@ -108,6 +114,7 @@ VENDOR_METHODS = {
     # fundamental_data
     "get_fundamentals": {
         "alpha_vantage": get_alpha_vantage_fundamentals,
+        "nse": get_nse_fundamentals,
         "yfinance": get_yfinance_fundamentals,
     },
     "get_balance_sheet": {
@@ -136,6 +143,7 @@ VENDOR_METHODS = {
     },
     "get_insider_transactions": {
         "alpha_vantage": get_alpha_vantage_insider_transactions,
+        "nse": get_nse_insider_transactions,
         "yfinance": get_yfinance_insider_transactions,
     },
     # macro_data

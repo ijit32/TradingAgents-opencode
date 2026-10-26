@@ -1,0 +1,80 @@
+{
+  "acqNameList": [
+    "SYNTHETIC PROMOTER ONE",
+    "SYNTHETIC HOLDER TWO"
+  ],
+  "data": [
+    {
+      "acqName": "SYNTHETIC PROMOTER ONE",
+      "acqfromDt": "09-Feb-2026",
+      "acqtoDt": "09-Feb-2026",
+      "afterAcqSharesNo": "3580245",
+      "afterAcqSharesPer": "1.23",
+      "befAcqSharesNo": "2345678",
+      "befAcqSharesPer": "0.81",
+      "company": "Reliance Industries Limited",
+      "date": "18-Feb-2026 19:06",
+      "intimDt": "16-Feb-2026",
+      "personCategory": "Promoter",
+      "secAcq": "1234567",
+      "secType": "Equity Shares",
+      "symbol": "RELIANCE",
+      "tdpTransactionType": "Buy",
+      "xbrl": "https://nsearchives.nseindia.com/corporate/xbrl/IT_SYNT_1627626_WEB.xml"
+    },
+    {
+      "acqName": "SYNTHETIC HOLDER TWO",
+      "acqfromDt": "24-Feb-2026",
+      "acqtoDt": "26-Feb-2026",
+      "afterAcqSharesNo": "46913579",
+      "afterAcqSharesPer": "2.34",
+      "befAcqSharesNo": "54567900",
+      "befAcqSharesPer": "2.72",
+      "company": "Reliance Industries Limited",
+      "date": "04-Mar-2026 11:32",
+      "intimDt": "03-Mar-2026",
+      "personCategory": "Immediate relative",
+      "secAcq": "7654321",
+      "secType": "Equity Shares",
+      "symbol": "RELIANCE",
+      "tdpTransactionType": "Sell",
+      "xbrl": "https://nsearchives.nseindia.com/corporate/xbrl/IT_SYNT_1627627_WEB.xml"
+    },
+    {
+      "acqName": "SYNTHETIC OTHER ISSUER INSIDER",
+      "acqfromDt": "28-Feb-2026",
+      "acqtoDt": "28-Feb-2026",
+      "afterAcqSharesNo": "1111111",
+      "afterAcqSharesPer": "0.11",
+      "befAcqSharesNo": "999999",
+      "befAcqSharesPer": "0.10",
+      "company": "Tata Consultancy Services Limited",
+      "date": "06-Mar-2026 10:00",
+      "intimDt": "05-Mar-2026",
+      "personCategory": "Employee",
+      "secAcq": "111112",
+      "secType": "Equity Shares",
+      "symbol": "TCS",
+      "tdpTransactionType": "Buy",
+      "xbrl": "https://nsearchives.nseindia.com/corporate/xbrl/IT_SYNT_1627628_WEB.xml"
+    },
+    {
+      "acqName": "SYNTHETIC PROMOTER ONE",
+      "acqfromDt": "12-Nov-2026",
+      "acqtoDt": "12-Nov-2026",
+      "afterAcqSharesNo": "46813579",
+      "afterAcqSharesPer": "1.29",
+      "befAcqSharesNo": "3580245",
+      "befAcqSharesPer": "1.23",
+      "company": "Reliance Industries Limited",
+      "date": "24-Nov-2026 09:15",
+      "intimDt": "20-Nov-2026",
+      "personCategory": "Promoter",
+      "secAcq": "1000000",
+      "secType": "Equity Shares",
+      "symbol": "RELIANCE",
+      "tdpTransactionType": "Buy",
+      "xbrl": "https://nsearchives.nseindia.com/corporate/xbrl/IT_SYNT_1627629_WEB.xml"
+    }
+  ]
+}

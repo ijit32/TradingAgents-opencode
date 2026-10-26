@@ -158,9 +158,10 @@ def build_default_config() -> dict:
         "data_vendors": {
             "core_stock_apis": "yfinance",       # Options: alpha_vantage, yfinance
             "technical_indicators": "yfinance",  # Options: alpha_vantage, yfinance
-            # Statements come from SEC EDGAR as filed (US filers), then Yahoo; the
-        # overview and insider tools, which SEC EDGAR does not serve, from Yahoo.
-        "fundamental_data": "sec_edgar,yfinance",  # Options: sec_edgar, alpha_vantage, yfinance
+            # Statements come from SEC EDGAR as filed (US filers), Indian filings
+        # from NSE (which self-gates every other market), then Yahoo; the overview
+        # and insider tools, which SEC EDGAR does not serve, from NSE or Yahoo.
+        "fundamental_data": "sec_edgar,nse,yfinance",  # Options: sec_edgar, nse, alpha_vantage, yfinance
             "news_data": "yfinance",             # Options: alpha_vantage, yfinance
             "macro_data": "fred",                # Options: fred (needs FRED_API_KEY)
             "prediction_markets": "polymarket",  # Options: polymarket (keyless)
@@ -173,12 +174,12 @@ def build_default_config() -> dict:
         # suffix picks the market and NSE is the exchange both the price and the
         # filing routes fall back to. The throttles are the pace the public NSE
         # endpoints tolerate from one machine; the lookback is in calendar days.
-        # No India vendor is registered yet, so these are read only by the paths
-        # that add one.
+        # The lookback must cover the last results filing (SEBI allows 45 days),
+        # not just the latest news, because that filing is the block's point.
         "india": {
             "preferred_exchange": "NSE",     # .NS preferred when a company lists on both
             "statement_basis": "consolidated",  # consolidated | standalone
-            "announcements_lookback_days": 7,
+            "announcements_lookback_days": 90,
             "gdelt_enabled": True,
             "publisher_feeds_enabled": True,
             "integrated_filings_page_size": 2000,
