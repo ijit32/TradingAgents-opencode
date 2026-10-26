@@ -1,4 +1,4 @@
-"""The HTTP transport every NSE adapter shares: one session, a cache and a budget.
+"""The HTTP transport every India vendor shares: one session, a cache and a budget.
 
 NSE exposes its filings through two hosts: ``www.nseindia.com`` serves JSON APIs
 and ``nsearchives.nseindia.com`` serves static files (the equity master CSV,
@@ -173,7 +173,7 @@ def _check_breaker() -> None:
         if not _open_until:
             return
         if _monotonic() < _open_until:
-            raise VendorUnavailableError("NSE circuit open after 3 failures")
+            raise VendorUnavailableError("circuit open after 3 failures")
         _failures = 0
         _open_until = 0.0
 
@@ -210,6 +210,16 @@ def _retry_delay(response: Any, bucket: str) -> float:
     return min(max(seconds, 0.0), _MAX_RETRY_AFTER_SECONDS)
 
 
+def _label(bucket: str) -> str:
+    """What an error message calls the host a request went to.
+
+    The two exchange hosts are NSE's; the news buckets are Google, GDELT and the
+    publisher sites, and an error that called those "NSE" would send a reader
+    looking at the wrong service.
+    """
+    return f"NSE {bucket}" if bucket in _BASE_URLS else bucket
+
+
 def _request_once(url: str, params: dict | None, bucket: str, accept: str) -> Any:
     _throttle(bucket)
     try:
@@ -221,7 +231,7 @@ def _request_once(url: str, params: dict | None, bucket: str, accept: str) -> An
         # not to a message that happens to contain a response body.
         _note_failure()
         raise VendorUnavailableError(
-            f"NSE {bucket} request failed ({type(exc).__name__})"
+            f"{_label(bucket)} request failed ({type(exc).__name__})"
         ) from exc
 
 
@@ -232,15 +242,15 @@ def _fetch(url: str, *, params: dict | None, bucket: str, accept: str) -> Any:
     if response.status_code in _RETRYABLE_STATUSES:
         delay = _retry_delay(response, bucket)
         logger.warning(
-            "NSE %s returned HTTP %s; retrying once in %.0fs",
-            bucket, response.status_code, delay,
+            "%s returned HTTP %s; retrying once in %.0fs",
+            _label(bucket), response.status_code, delay,
         )
         _sleep(delay)
         response = _request_once(url, params, bucket, accept)
         if response.status_code in _RETRYABLE_STATUSES:
-            _fail(f"NSE {bucket} returned HTTP {response.status_code} after one retry")
+            _fail(f"{_label(bucket)} returned HTTP {response.status_code} after one retry")
     if response.status_code >= 400:
-        _fail(f"NSE {bucket} returned HTTP {response.status_code}")
+        _fail(f"{_label(bucket)} returned HTTP {response.status_code}")
     return response
 
 
@@ -283,10 +293,10 @@ def get_json(
         payload = response.json()
     except ValueError as exc:
         _note_failure()
-        raise VendorUnavailableError(f"NSE {bucket} returned unreadable JSON") from exc
+        raise VendorUnavailableError(f"{_label(bucket)} returned unreadable JSON") from exc
     if not isinstance(payload, (dict, list)):
         _note_failure()
-        raise VendorUnavailableError(f"NSE {bucket} returned unreadable JSON")
+        raise VendorUnavailableError(f"{_label(bucket)} returned unreadable JSON")
 
     _note_success()
     _write_cache(cache_path, json.dumps(payload).encode("utf-8"))
@@ -317,7 +327,7 @@ def get_bytes(
     except requests.RequestException as exc:
         _note_failure()
         raise VendorUnavailableError(
-            f"NSE {bucket} response could not be read ({type(exc).__name__})"
+            f"{_label(bucket)} response could not be read ({type(exc).__name__})"
         ) from exc
 
     _note_success()

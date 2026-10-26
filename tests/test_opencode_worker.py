@@ -320,6 +320,7 @@ def test_collect_news_covers_macro_and_odds_without_future_data(tmp_path, capsys
         assert f"### {indicator}" in pack
     for topic in ("Fed rate cut", "recession 2026", "NVDA"):
         assert f"### {topic}" in pack
+    assert "searched by issuer name" not in pack
 
     # Every dated call is clamped to the analysis date, never later.
     dated = {
@@ -335,6 +336,22 @@ def test_collect_news_covers_macro_and_odds_without_future_data(tmp_path, capsys
         seen.add(name)
         assert str(args[dated[name]]) <= "2026-10-23"
     assert seen == set(dated)
+
+
+@pytest.mark.unit
+def test_collect_news_names_the_india_sources(tmp_path, capsys, patched_tools):
+    root = tmp_path / "run"
+    root.mkdir()
+    _write_request(root, ticker="RELIANCE.NS")
+    assert _run(capsys, "init", "--run-dir", str(root))[0] == 0
+
+    code, _ = _run(capsys, "collect", "--run-dir", str(root), "--analyst", "news")
+
+    assert code == 0
+    pack = (root / "data" / "news.md").read_text()
+    assert "News data pack — RELIANCE.NS as of 2026-10-23" in pack
+    assert "searched by issuer name" in pack
+    assert "exchange's own filing record" in pack
 
 
 @pytest.mark.unit

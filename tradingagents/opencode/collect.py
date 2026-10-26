@@ -17,6 +17,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from typing import Any
 
+from tradingagents.dataflows import markets
 from tradingagents.dataflows.date_window import is_historical
 from tradingagents.opencode.contract import AnalysisRequest, BadInput
 
@@ -403,6 +404,14 @@ def collect_news(request: AnalysisRequest) -> DataPack:
         "lookback ending on the analysis date. Collected once, before the analyst was called. "
         "Nothing later than the analysis date is included."
     )
+    if markets.is_india(ticker):
+        header += (
+            "\n\nCompany news for an NSE/BSE listing is searched by issuer name across "
+            "Google News, GDELT and the Indian publisher feeds, and the company-news "
+            "section also carries the exchange's own filing record for the window. "
+            "Headlines name their publisher, and a source that could not be reached "
+            "is reported as a gap, not as an absence of news."
+        )
     sections = [
         Section(
             "company_news",

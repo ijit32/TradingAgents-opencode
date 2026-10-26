@@ -18,6 +18,7 @@ from tradingagents.dataflows.vendors.alpha_vantage import (
     get_stock as get_alpha_vantage_stock,
 )
 from tradingagents.dataflows.vendors.fred import get_macro_data as get_fred_macro_data
+from tradingagents.dataflows.vendors.india_news import get_news as get_india_news
 from tradingagents.dataflows.vendors.nse.fundamentals import (
     get_fundamentals as get_nse_fundamentals,
 )
@@ -135,6 +136,7 @@ VENDOR_METHODS = {
     # news_data
     "get_news": {
         "alpha_vantage": get_alpha_vantage_news,
+        "nse": get_india_news,
         "yfinance": get_news_yfinance,
     },
     "get_global_news": {

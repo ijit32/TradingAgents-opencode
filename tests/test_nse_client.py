@@ -211,3 +211,24 @@ def test_three_failures_open_the_circuit_and_reset_state_closes_it(monkeypatch, 
     client.reset_state()
     assert client.get_json("/api/a", ttl_seconds=0, namespace=_NS, key="after") == {"ok": True}
     assert len(calls) == 4
+
+
+@pytest.mark.unit
+def test_a_news_host_failure_is_not_labelled_nse(monkeypatch, clock):
+    """The same transport serves Google News and GDELT; the reader must not be
+    sent looking at NSE when one of those throttled."""
+    _install(monkeypatch, clock, [
+        _Response(503, headers={"Retry-After": "1"}),
+        _Response(503, headers={"Retry-After": "1"}),
+    ])
+
+    with pytest.raises(
+        VendorUnavailableError, match=r"^google_news returned HTTP 503 after one retry$"
+    ):
+        client.get_bytes(
+            "https://news.google.com/rss/search?q=x",
+            bucket="google_news",
+            ttl_seconds=0,
+            namespace=_NS,
+            key="google",
+        )

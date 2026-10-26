@@ -158,11 +158,14 @@ def build_default_config() -> dict:
         "data_vendors": {
             "core_stock_apis": "yfinance",       # Options: alpha_vantage, yfinance
             "technical_indicators": "yfinance",  # Options: alpha_vantage, yfinance
-            # Statements come from SEC EDGAR as filed (US filers), Indian filings
-        # from NSE (which self-gates every other market), then Yahoo; the overview
-        # and insider tools, which SEC EDGAR does not serve, from NSE or Yahoo.
-        "fundamental_data": "sec_edgar,nse,yfinance",  # Options: sec_edgar, nse, alpha_vantage, yfinance
-            "news_data": "yfinance",             # Options: alpha_vantage, yfinance
+            # Statements come from SEC EDGAR as filed (US filers) and Indian
+            # filings from NSE (which self-gates every other market), then Yahoo;
+            # the overview and insider tools, which SEC EDGAR does not serve, from
+            # NSE or Yahoo.
+            "fundamental_data": "sec_edgar,nse,yfinance",  # Options: sec_edgar, nse, alpha_vantage, yfinance
+            # India news is searched by issuer name from NSE/BSE listings; NSE
+            # self-gates every other ticker, so Yahoo serves the US path unchanged.
+            "news_data": "nse,yfinance",  # Options: nse (NSE/BSE), alpha_vantage, yfinance
             "macro_data": "fred",                # Options: fred (needs FRED_API_KEY)
             "prediction_markets": "polymarket",  # Options: polymarket (keyless)
         },
@@ -186,6 +189,7 @@ def build_default_config() -> dict:
             "request_timeout_seconds": 30,
             "min_interval_seconds": {
                 "nse": 2.0, "archives": 1.0, "gdelt": 6.0, "google_news": 2.0,
+                "publishers": 2.0,
             },
         },
         # BSE<->NSE overrides for dual-listed companies whose symbols differ,

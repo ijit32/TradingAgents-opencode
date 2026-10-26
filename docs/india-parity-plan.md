@@ -1,6 +1,7 @@
 # India (NSE/BSE) parity — implementation plan
 
-Status: plan only, nothing implemented. Awaiting approval.
+Status: in progress. Phases 0, 1, 2a, 2c and 3 have shipped; 2b is deferred
+behind the Phase 2a gate and §13; Phases 4–7 remain.
 
 Scope: make a run on an NSE or BSE listing as complete as a US run — prices,
 technicals, fundamentals as filed, company news, exchange filings, social
@@ -224,7 +225,7 @@ tradingagents/dataflows/vendors/nse/
     shareholding.py    # quarterly shareholding pattern
 tradingagents/dataflows/vendors/india_news/
     __init__.py
-    google_news.py     # date-ranged Google News RSS
+    google.py          # date-ranged Google News RSS
     gdelt.py           # DOC 2.0, 3-month window, throttled
     publishers.py      # ET / Moneycontrol / Business Standard RSS (live only)
     query.py           # company-name + symbol query builder, dedup
@@ -569,6 +570,17 @@ plus a Q3 FY25 or Q4 FY25 P&L where XBRL exists.
 Done when: `RELIANCE.NS` on a dated historical window returns dated articles plus
 filings, with no item after `trade_date`; `AAPL` news output is unchanged;
 GDELT's 3-month limit appears as a note rather than an empty section.
+
+**Shipped 2026-10-26.** Live `RELIANCE.NS` over 2025-06-01..07 returned thirteen
+dated articles from Google News and three exchange filings (17:49, 19:41 and
+19:03 IST), with GDELT printing its 90-day notice instead of an empty section
+and no publisher request (the window has closed). The query builder resolves the
+issuer name from `EQUITY_L.csv`, drops the symbol for punctuated ones (`M&M`),
+and falls back to the quoted name when the symbol query returns nothing. The
+default chain is `nse,yfinance`: NSE self-gates a US ticker, so `AAPL` reaches
+Yahoo with no extra request and unchanged output. Publisher feeds are fetched
+only when the window reaches today, and each source that fails is named in the
+output rather than read as an absence of news.
 
 ### Phase 4 — Social (≈1 day)
 

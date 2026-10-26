@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:dc="http://purl.org/dc/elements/1.1/">
+  <channel>
+    <title>Markets</title>
+    <link>https://economictimes.indiatimes.com/markets</link>
+    <item>
+      <title>Reliance Industries shares rise on refining margin outlook</title>
+      <link>https://economictimes.indiatimes.com/markets/reliance-refining.cms</link>
+      <pubDate>Fri, 25 Apr 2025 09:15:00 +0530</pubDate>
+      <description><![CDATA[<p>Reliance Industries Ltd gained in early trade after brokerages raised their targets.</p>]]></description>
+      <dc:creator>Bloomberg Wire</dc:creator>
+    </item>
+    <item>
+      <title>Sensex closes higher as IT stocks rally</title>
+      <link>https://economictimes.indiatimes.com/markets/sensex-close.cms</link>
+      <pubDate>Fri, 25 Apr 2025 16:00:00 +0530</pubDate>
+      <description><![CDATA[<p>The Sensex closed 300 points higher, led by software exporters.</p>]]></description>
+      <dc:creator>ET Markets Desk</dc:creator>
+    </item>
+    <item>
+      <title>Reliance Industries Q4 results: what brokerages say</title>
+      <link>https://economictimes.indiatimes.com/markets/reliance-q4.cms</link>
+      <pubDate>Thu, 10 Apr 2025 10:00:00 +0530</pubDate>
+      <description><![CDATA[<p>Brokerages remain split on the quarter.</p>]]></description>
+      <dc:creator>ET Markets Desk</dc:creator>
+    </item>
+  </channel>
+</rss>
