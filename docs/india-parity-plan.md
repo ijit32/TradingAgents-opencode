@@ -59,10 +59,13 @@ Three findings that shape the design:
 
 1. **The filings backbone is NSE, not BSE.** BSE's JSON API is blocked from this
    network, and BSE-only scrips have no public filing feed we can reach.
-2. **Not every results filing is structured.** `RELIANCE` filed FY25 results on
-   2025-04-25 20:05 IST as announcement "Outcome of Board Meeting" with two PDFs
-   and `hasXbrl: false`; the results index has no Financials row for it. XBRL
-   coverage is real but uneven, including among large caps.
+2. **Not every results filing is structured — and the announcement flag does not
+   say which.** `RELIANCE` announced FY25 results on 2025-04-25 20:05 IST
+   ("Outcome of Board Meeting", two PDFs, `hasXbrl: false`), yet the integrated
+   index carried a Financials row for the same period at 21:57 IST with an
+   instance that parses. `hasXbrl` is false for announcements whose matching
+   index row has a working instance, so the instance, not the flag, is the
+   signal. XBRL coverage is real but uneven, including among large caps.
 3. **FRED's India series are unverified** — the FRED website is unreachable from
    this host and no key is configured. Phase 5 starts with a probe script, not a
    hard-coded series list.
@@ -380,17 +383,21 @@ Header format mirrors `sec_edgar` so the analyst prompt shape does not change:
 # consolidated, unaudited, Ind-AS), period 2026-07-01 to 2026-09-30
 ```
 
-When a filing has no structured instance:
+When a filing has no structured instance — any quarter before the April 2025
+integrated index, or an index row that carries no XBRL link:
 
 ```
-# Income Statement for RELIANCE.NS as of 2025-04-25
-# Results were filed on 2025-04-25 20:05 IST ("Outcome of Board Meeting") but
+# Income Statement for RELIANCE.NS as of <as-of date>
+# Results were filed on <broadcast date, IST> ("Outcome of Board Meeting") but
 # carry no structured XBRL. The filing is at <pdf url>. No figures are stated
 # here: the report would have to read a PDF to obtain them.
 ```
 
-That is the honest answer for a large cap like `RELIANCE` in FY25, and it is
-strictly better than a withheld notice or an invented number.
+That is the honest answer for the older quarters, which exist only as
+announcements, and it is strictly better than a withheld notice or an invented
+number. RELIANCE's FY25 filing is not such a case: its announcement said
+`hasXbrl: false`, but the integrated index carried a parseable instance at
+21:57 IST that evening (Phase 2a).
 
 ### 5.4 SEBI PIT (insider) and shareholding
 
@@ -515,14 +522,42 @@ Exit criteria for continuing to 2b:
 - ≥60 % of sampled quarters have a parseable XBRL instance; **and**
 - ≥1 annual instance per sampled issuer parses with a balance sheet.
 
-**Result 2026-10-25: the gate fails — 30/120 quarters = 25.0 %**
-(`docs/india-phase2a-structured-coverage.md`). All 30 misses are "no filing
-row", not parser failures: every instance the integrated index exposes parses
-(30/30), and 14/15 NSE issuers have an annual balance sheet. The index itself
-starts April 2025, so older quarters exist only as announcements. Decision:
-ship Phase 2c (named and dated announcements for all history, XBRL statements
-for the two covered quarters, annual history where present) and defer 2b's
-eight-quarter promise. `.BO`-only coverage stays unmeasurable — BSE is blocked.
+**Result 2026-10-25: the gate fails — 30/120 quarters = 25.0 %** (30/160 =
+18.8 % if the `.BO`-only quarters are counted as misses rather than left
+unmeasured). All 30 misses are "no filing row", not parser failures: every
+instance the integrated index exposes parses with a duration-matched,
+non-dimensional context (30/30), so the same feed is 100 % over the two
+quarters it actually covers, Q4 FY25 and Q1 FY26. The index itself starts
+April 2025, so older quarters exist only as announcements. The fixed
+20-issuer sample, the endpoints and the per-issuer rows live in
+`scripts/india_coverage_audit.py`; rerunning it regenerates the evidence under
+`artifacts/india-phase2a/` (gitignored).
+
+Two caveats the 25 % should not be read without:
+
+- **Announcement `hasXbrl` is not the signal.** It is false for announcements
+  whose matching integrated row carries a working instance: RELIANCE's FY25
+  results were announced at 20:05 IST with `hasXbrl: false` and filed in the
+  index at 21:57 IST the same evening, a 1 h 52 min point-in-time gap on the
+  publication evening. A run at 20:30 IST that day saw the announcement but not
+  the instance.
+- **Quarterly balance sheets are the exception.** Only 15 of the 30 parseable
+  quarterly instances carry a non-dimensional balance sheet: the 14 Q4 FY25
+  annual filings plus RAIN's Q1 FY26. Outside the Q4/annual filing a
+  point-in-time balance sheet is not reliably available.
+
+That is also why the annual count is 14/15, not 15/15: RAIN's fiscal year ends
+in December, the spike fixed annual year-ends at 31 March, and even its own
+Dec-2024 row is Governance-only, so it has no annual Financials instance at
+either year-end.
+
+`.BO`-only coverage stays unmeasured — BSE is blocked, and BSE-only status is
+inferred from a Yahoo quote plus absence from NSE `EQUITY_L`, so no BSE filing
+or XBRL evidence was used. Decision: ship Phase 2c (named and dated
+announcements for all history, XBRL statements for the two covered quarters,
+annual history where present) and defer 2b's eight-quarter promise. Had the
+product needed only the current quarter plus the latest annual, 2b would have
+been viable on the same numbers.
 
 If coverage is below that, do not write a statement parser on hope: stop, and
 take the coverage number to the build-vs-buy gate (§13) before proceeding. The
@@ -569,8 +604,10 @@ the block is appended text with the same heading levels.
 `nse_pit.get_insider_transactions` ships here too.
 
 Done when: a `RELIANCE.NS` run dated 2025-06-02 shows the FY25 results filing of
-2025-04-25 with its link and states that no structured figures accompany it,
-plus a Q3 FY25 or Q4 FY25 P&L where XBRL exists.
+2025-04-25 with its link, the Q4/FY25 P&L and the FY25 annual balance sheet
+parsed from the instance the index published at 21:57 IST that evening, and —
+for a quarter the index does not cover — the announcement with its link and
+"No figures are stated here".
 
 ### Phase 3 — India news (≈5 days)
 
@@ -808,7 +845,7 @@ unless a test is marked `integration`.
 | `tests/test_nse_client.py` | throttle spacing, 429 retry once, cache TTL, breaker opens after 3 failures |
 | `tests/test_nse_filings.py` | pagination walk, symbol filter, Original over Revised, latest filing ≤ date |
 | `tests/test_nse_xbrl.py` | fixtures: quarterly P&L, dimensional facts ignored, Q vs 9M context selection, annual balance sheet, units |
-| `tests/test_nse_fundamentals.py` | `RELIANCE` FY25 unstructured case: filing date served, PDF link present, no invented figures |
+| `tests/test_nse_fundamentals.py` | a filing whose index row carries no instance: filing date served, PDF link present, no invented figures |
 | `tests/test_nse_pit.py` | `intimDt` gate; trade date shown beside filing date |
 | `tests/test_nse_shareholding.py` | `broadcastDate` gate; promoter % row |
 | `tests/test_india_news*.py` | composition and routing (`test_india_news`), query builder with `&` (`_query`), GDELT 3-month note (`_gdelt`), Google date window (`_google`), publisher feeds (`_publishers`) |
@@ -863,7 +900,7 @@ refused.
 | Risk | Impact | Mitigation |
 |---|---|---|
 | NSE public endpoints are unofficial and can block or change | filings vanish mid-run | descriptive UA, ≥2 s throttle, cache, breaker, `VendorUnavailableError`, config rollback to `yfinance` |
-| Structured XBRL missing for large caps (verified: `RELIANCE` FY25) | no historical P&L for that issuer | Phase 2a measures coverage; unstructured filings are named with their date and PDF; PDF extraction is explicitly out of scope |
+| Structured XBRL is shallow, not parity: the index starts April 2025, so 25 % of sampled quarters have an instance (Phase 2a) | no historical P&L before Q4 FY25, for large caps too | Phase 2a measured coverage and deferred 2b; unstructured filings are named with their date and PDF; PDF extraction is explicitly out of scope |
 | `corporates-financial-results` looks usable but is not | silent stale data | endpoint documented as legacy and unused; tests assert the integrated route |
 | BSE API blocked (verified 403) | `.BO`-only scrips have no filings | documented as price+news coverage; `.NS` preferred; build-vs-buy gate |
 | XBRL taxonomy drift | parse failure or wrong row | namespace-agnostic local-name matching, strict context selection, per-taxonomy fixtures, fail closed |
@@ -915,8 +952,9 @@ coverage, and redistribution terms before any integration work.
    the series is unavailable), or add a small RBI reader for the current value
    only, clearly marked live-only and withheld for historical runs?
 2. **Unstructured filings.** Confirm the "name it, date it, link it, state no
-   figures" policy for filings like `RELIANCE` FY25, rather than adding PDF
-   extraction to this project.
+   figures" policy for a filing with no structured instance — any quarter before
+   the April 2025 index, or an index row with no XBRL link — rather than adding
+   PDF extraction to this project.
 3. **Phase 2a gate.** Accept stopping after the spike if structured coverage
    falls below 60 %, or is a below-threshold result acceptable if every filing is
    at least named and dated?
