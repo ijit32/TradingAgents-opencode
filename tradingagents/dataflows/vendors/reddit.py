@@ -9,6 +9,12 @@ A fetch that fails is reported as ``<unavailable>``, never as "no posts found":
 the two are different claims, and passing a rate-limited fetch off as silence
 hands the sentiment analyst a signal that was never observed (#1295).
 
+Indian listings (``.NS``/``.BO``) are searched in Indian communities, because
+the US subreddits barely mention an NSE/BSE symbol. The branch is decided by
+the exchange suffix alone and the query uses the bare symbol posters write —
+``TCS.NS`` searches "TCS" in the Indian subreddits, while a bare ``TCS`` stays
+the US listing. No extra request is spent resolving either.
+
 No API key required. Returns formatted plaintext blocks ready for prompt
 injection and degrades gracefully — returns a placeholder string rather than
 raising, so callers never special-case missing data.
@@ -29,6 +35,7 @@ from urllib.error import HTTPError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
+from tradingagents.dataflows import markets
 from tradingagents.dataflows.date_window import coverage_gap, in_window
 from tradingagents.dataflows.symbols import crypto_base
 
@@ -83,9 +90,30 @@ DEFAULT_SUBREDDITS = ("wallstreetbets", "stocks", "investing")
 CRYPTO_SUBREDDITS = ("CryptoCurrency", "CryptoMarkets")
 _COIN_SUBREDDITS = {"BTC": "Bitcoin", "ETH": "ethereum", "SOL": "solana"}
 
+# India is discussed in Indian communities; the US subreddits above barely
+# mention an NSE/BSE listing. These four were verified reachable, but they are
+# low-volume, so an empty result inside them is a real empty result rather than
+# a search that silently missed. NSE and BSE listings share the same four
+# communities — retail posters do not split the discussion by exchange — so the
+# suffix picks the market, not a different list.
+INDIA_SUBREDDITS = (
+    "IndiaInvestments", "IndianStockMarket", "DalalStreetBets", "IndianStreetBets",
+)
+
 
 def subreddits_for(ticker: str) -> tuple[str, ...]:
-    """The subreddits searched for ``ticker``: crypto communities for a crypto pair."""
+    """The subreddits searched for ``ticker``: Indian communities for an
+    NSE/BSE listing, crypto communities for a crypto pair, US ones otherwise.
+
+    India is checked first, and ``markets.is_india`` decides it from the suffix
+    alone — no request, no name lookup. That is what keeps a bare ``TCS`` (the
+    Container Store on the NYSE) in the US subreddits while ``TCS.NS`` (Tata
+    Consultancy) reaches the Indian ones. A suffix this package does not model
+    (``.L``, ``.T``) falls through to the default rather than being guessed into
+    a market whose communities we have not verified.
+    """
+    if markets.is_india(ticker):
+        return INDIA_SUBREDDITS
     base = crypto_base(ticker)
     if not base:
         return DEFAULT_SUBREDDITS
@@ -271,11 +299,25 @@ def fetch_reddit_posts(
     ``screen``, when given, takes each post's title and body and returns a keep
     flag per post and a note line that heads the block. It runs before the
     per-subreddit cut, so the posts it keeps fill the slots.
+
+    The searched term is the form posters write, not the vendor's spelling:
+    crypto pairs lose their quote currency (``BTC-USD`` searches "BTC") and an
+    NSE/BSE listing loses its exchange suffix (``TCS.NS`` searches "TCS"). The
+    suffix alone picks the market, so this costs no extra request. Rendered
+    blocks name the caller's symbol, so an Indian block says ``TCS.NS`` rather
+    than the bare symbol that also names a US listing.
     """
     subreddits = list(subreddits or subreddits_for(ticker))
-    # Crypto reaches us as a Yahoo pair (BTC-USD); search Reddit for the base
-    # ("BTC") so the query actually matches discussion instead of near-nothing.
-    ticker = crypto_base(ticker) or ticker
+    requested = ticker
+    if markets.is_india(ticker):
+        # Reddit never shows the ".NS"/".BO" suffix; the bare symbol is what
+        # posters actually type.
+        ticker = markets.india_ticker(ticker)
+    else:
+        # Crypto reaches us as a Yahoo pair (BTC-USD); search Reddit for the
+        # base ("BTC") so the query actually matches discussion instead of
+        # near-nothing. Its blocks have always named the base, so keep that.
+        ticker = requested = crypto_base(ticker) or ticker
     label = ", ".join(f"r/{s}" for s in subreddits)
     fetched = _fetch_subreddit_rss(ticker, "+".join(subreddits), _FEED_PAGE, timeout)
     if fetched is None:
@@ -286,10 +328,12 @@ def fetch_reddit_posts(
     if not posts:
         gap = window and coverage_gap(
             _coverage_dates(fetched), start_date, end_date,
-            "Reddit search", f"discussion of {ticker.upper()}",
+            "Reddit search", f"discussion of {requested.upper()}",
         )
         period = f"within {start_date}..{end_date}" if window else "in the past 7 days"
-        return gap or f"<no Reddit posts found mentioning {ticker.upper()} across {label} {period}>"
+        return gap or (
+            f"<no Reddit posts found mentioning {requested.upper()} across {label} {period}>"
+        )
 
     def sub_of(p):
         return p.get("subreddit") or (subreddits[0] if len(subreddits) == 1 else "unknown")
@@ -313,15 +357,15 @@ def fetch_reddit_posts(
     for sub, sub_posts in by_sub.values():
         if not sub_posts:
             if sub.lower() in screened_out:
-                blocks.append(f"r/{sub}: <no posts about {ticker.upper()} after screening>")
+                blocks.append(f"r/{sub}: <no posts about {requested.upper()} after screening>")
             else:
                 blocks.append(
                     f"r/{sub}: <not among the newest {_FEED_PAGE} matches across {label}>"
-                    if page_full else f"r/{sub}: <no posts found mentioning {ticker.upper()}>"
+                    if page_full else f"r/{sub}: <no posts found mentioning {requested.upper()}>"
                 )
             continue
         sub_posts = sub_posts[:limit_per_sub]  # the feed is newest-first
-        lines = [f"r/{sub} — {len(sub_posts)} recent posts mentioning {ticker.upper()}:"]
+        lines = [f"r/{sub} — {len(sub_posts)} recent posts mentioning {requested.upper()}:"]
         for p in sub_posts:
             title = (p.get("title") or "").replace("\n", " ").strip()
             created = p.get("created_utc")

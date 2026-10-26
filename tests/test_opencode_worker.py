@@ -301,6 +301,43 @@ def test_collect_sentiment_writes_a_windowed_pack(tmp_path, capsys, patched_tool
     # A historical run says so: these feeds are not archived.
     assert "not point-in-time" in pack
     assert any("not point-in-time" in note for note in out["notes"])
+    # US: the news section is still Yahoo's, and StockTwits was fetched.
+    assert "News headlines — Yahoo Finance" in pack
+    assert "StockTwits messages — user-labelled" in pack
+
+
+@pytest.mark.unit
+def test_collect_sentiment_for_an_india_listing_skips_stocktwits(
+    tmp_path, capsys, patched_tools, patched_social
+):
+    root = tmp_path / "run"
+    root.mkdir()
+    _write_request(root, ticker="TCS.NS")
+    _run(capsys, "init", "--run-dir", str(root))
+
+    code, out = _run(capsys, "collect", "--run-dir", str(root), "--analyst", "social")
+
+    assert code == 0
+    pack = (root / "data" / "social.md").read_text()
+    assert "Sentiment data pack — TCS.NS as of 2026-10-23" in pack
+    # No StockTwits request: the section says why instead of reporting a 404.
+    assert not [call for call in patched_social if call[0] == "stocktwits"]
+    assert "StockTwits — not applicable to NSE/BSE listings" in pack
+    assert "<stocktwits not applicable to NSE/BSE listings>" in pack
+    assert "not evidence of indifference" in pack
+    assert "no cashtag stream exists for this run" in pack
+    # Reddit searched the Indian communities, not wallstreetbets.
+    reddit_call = next(call for call in patched_social if call[0] == "reddit")
+    assert reddit_call[2] == (
+        "IndiaInvestments",
+        "IndianStockMarket",
+        "DalalStreetBets",
+        "IndianStreetBets",
+    )
+    assert "r/IndiaInvestments" in pack
+    assert "News headlines — Google News, GDELT and Indian publishers" in pack
+    # The pack's index records the skipped source as a note, not a silent gap.
+    assert any("StockTwits does not list NSE/BSE instruments" in note for note in out["notes"])
 
 
 @pytest.mark.unit

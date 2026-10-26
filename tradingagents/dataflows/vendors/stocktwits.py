@@ -10,6 +10,14 @@ The function is deliberately self-contained: short timeout, graceful
 degradation on any HTTP or parse failure, and a string return type so
 the calling agent gets a uniform interface regardless of whether the
 network call succeeded.
+
+StockTwits keys its streams by US-style cashtags, so it has no stream for an
+NSE/BSE listing: ``TCS.NS`` 404s. A bare ``TCS`` is worse than a 404 — that is
+the Container Store, a different company — so the India branch is decided by the
+exchange suffix alone and never by dropping it. Both are read as silence if left
+to the transport layer, and silence about a listing is a false signal about how
+retail feels; the India path therefore answers with a fixed not-applicable
+placeholder before any request is made.
 """
 
 from __future__ import annotations
@@ -22,6 +30,7 @@ import logging
 from datetime import datetime
 from urllib.request import Request, urlopen
 
+from tradingagents.dataflows import markets
 from tradingagents.dataflows.date_window import coverage_gap, in_window
 from tradingagents.dataflows.symbols import crypto_base
 
@@ -29,6 +38,11 @@ logger = logging.getLogger(__name__)
 
 _API = "https://api.stocktwits.com/api/2/streams/symbol/{ticker}.json"
 _UA = "tradingagents/0.2 (+https://github.com/TauricResearch/TradingAgents)"
+
+# Exported so the sentiment pack imports the wording instead of restating it:
+# one string, one meaning — the source was never asked, so its silence says
+# nothing about the instrument.
+INDIA_NOT_APPLICABLE = "<stocktwits not applicable to NSE/BSE listings>"
 
 
 def _created_at(message) -> datetime | None:
@@ -90,10 +104,20 @@ def fetch_stocktwits_messages(
     ``screen``, when given, takes the message bodies and returns a keep flag per
     message and a note line that heads the block.
 
+    An NSE/BSE listing short-circuits to ``INDIA_NOT_APPLICABLE`` before the URL
+    is built: StockTwits keys streams by US cashtags, so an Indian symbol has no
+    stream to read and its 404 would otherwise be reported as a quiet market.
+    ``limit``, the dates and ``screen`` cannot change that answer — no request is
+    made, and the placeholder is deliberately not a coverage-gap string, because
+    no coverage was attempted.
+
     Returns a placeholder string when the endpoint is unreachable, the
     symbol has no messages, or the response shape is unexpected — the
     caller never has to special-case None or exceptions.
     """
+    if markets.is_india(ticker):
+        return INDIA_NOT_APPLICABLE
+
     url = _API.format(ticker=_stocktwits_symbol(ticker))
     req = Request(url, headers={"User-Agent": _UA, "Accept": "application/json"})
     try:

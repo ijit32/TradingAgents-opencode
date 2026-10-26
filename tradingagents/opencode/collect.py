@@ -263,10 +263,14 @@ def collect_sentiment(request: AnalysisRequest) -> DataPack:
     from tradingagents.agents.post_screen import jev_screen
     from tradingagents.agents.tools import get_news
     from tradingagents.dataflows.vendors.reddit import fetch_reddit_posts, subreddits_for
-    from tradingagents.dataflows.vendors.stocktwits import fetch_stocktwits_messages
+    from tradingagents.dataflows.vendors.stocktwits import (
+        INDIA_NOT_APPLICABLE,
+        fetch_stocktwits_messages,
+    )
 
     ticker = request.ticker
     trade_date = request.trade_date
+    india = markets.is_india(ticker)
     start, end = _window(trade_date, NEWS_WINDOW_DAYS)
     subreddits = subreddits_for(ticker)
     screen = jev_screen(ticker)
@@ -279,14 +283,24 @@ def collect_sentiment(request: AnalysisRequest) -> DataPack:
         sources=sources,
         notes=notes,
     )
-    stocktwits = _attempt(
-        "fetch_stocktwits_messages",
-        lambda: fetch_stocktwits_messages(
-            ticker, limit=30, start_date=start, end_date=end, screen=screen
-        ),
-        sources=sources,
-        notes=notes,
-    )
+    if india:
+        # StockTwits keys its streams by US-style cashtags and has no NSE/BSE
+        # line, so asking would spend a request on a 404 and the 404 would read
+        # as silence. Skip the call and say why in the section itself.
+        stocktwits = INDIA_NOT_APPLICABLE
+        notes.append(
+            "StockTwits does not list NSE/BSE instruments; no cashtag stream was fetched. "
+            "Indian discussion on Reddit is thin, so an empty social section is not indifference"
+        )
+    else:
+        stocktwits = _attempt(
+            "fetch_stocktwits_messages",
+            lambda: fetch_stocktwits_messages(
+                ticker, limit=30, start_date=start, end_date=end, screen=screen
+            ),
+            sources=sources,
+            notes=notes,
+        )
     reddit = _attempt(
         "fetch_reddit_posts",
         lambda: fetch_reddit_posts(
@@ -303,30 +317,51 @@ def collect_sentiment(request: AnalysisRequest) -> DataPack:
         )
         notes.append(note)
 
+    subs = ", ".join(f"r/{sub}" for sub in subreddits)
+    if india:
+        fetched = (
+            f"The plugin fetched news headlines and posts from {subs} before the analyst "
+            "was called. StockTwits does not list NSE/BSE instruments, so no cashtag "
+            "stream exists for this run. Indian retail discussion on these communities is "
+            "thin, so an empty section is not evidence of indifference."
+        )
+    else:
+        fetched = (
+            "The plugin fetched news headlines, the StockTwits cashtag stream (limit 30), "
+            f"and posts from {subs} before the analyst was called."
+        )
     header = (
         f"# Sentiment data pack — {ticker} as of {trade_date}\n\n"
-        f"Window: {start} → {end}. The plugin fetched news headlines, the StockTwits cashtag "
-        f"stream (limit 30), and posts from {', '.join(f'r/{sub}' for sub in subreddits)} before "
-        "the analyst was called. Each section is that fetch's complete output; cite only what "
-        "appears below."
+        f"Window: {start} → {end}. {fetched} Each section is that fetch's complete "
+        "output; cite only what appears below."
     )
     if is_historical(trade_date):
         header += (
             "\n\n**Data-quality note:** the social feeds serve recent items and are not "
-            "archived, so a historical run's StockTwits and Reddit blocks are not "
-            "point-in-time. Weigh the news block accordingly and lower confidence when the "
-            "social sections are missing or undated."
+            "archived, so a historical run's social blocks are not point-in-time. Weigh "
+            "the news block accordingly and lower confidence when the social sections are "
+            "missing or undated."
         )
+    news_source = (
+        f"Google News, GDELT and Indian publishers ({start} → {end})"
+        if india
+        else f"Yahoo Finance ({start} → {end})"
+    )
+    stocktwits_title = (
+        "StockTwits — not applicable to NSE/BSE listings"
+        if india
+        else "StockTwits messages — user-labelled Bullish / Bearish tags"
+    )
     sections = [
         Section(
             "company_news",
-            f"News headlines — Yahoo Finance ({start} → {end})",
+            f"News headlines — {news_source}",
             news.strip(),
             trim_rank=0,
         ),
         Section(
             "stocktwits",
-            "StockTwits messages — user-labelled Bullish / Bearish tags",
+            stocktwits_title,
             stocktwits.strip(),
             trim_rank=1,
         ),

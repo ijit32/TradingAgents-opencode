@@ -1,7 +1,7 @@
 # India (NSE/BSE) parity — implementation plan
 
-Status: in progress. Phases 0, 1, 2a, 2c and 3 have shipped; 2b is deferred
-behind the Phase 2a gate and §13; Phases 4–7 remain.
+Status: in progress. Phases 0, 1, 2a, 2c, 3 and 4 have shipped; 2b is deferred
+behind the Phase 2a gate and §13; Phases 5–7 remain.
 
 Scope: make a run on an NSE or BSE listing as complete as a US run — prices,
 technicals, fundamentals as filed, company news, exchange filings, social
@@ -596,6 +596,17 @@ output rather than read as an absence of news.
 
 Done when: `collect_sentiment` for `TCS.NS` makes no StockTwits call, and for
 `TCS` (US) still does.
+
+**Shipped 2026-10-26.** `subreddits_for` branches on the exchange suffix before
+crypto, so `TCS.NS` searches `IndiaInvestments`, `IndianStockMarket`,
+`DalalStreetBets` and `IndianStreetBets`, while bare `TCS` stays the Container
+Store and keeps the US defaults. Reddit searches the bare NSE symbol (`TCS`),
+still in one combined request. StockTwits returns
+`<stocktwits not applicable to NSE/BSE listings>` from a single constant before
+any URL is built, and both the sentiment pack and the graph prompt skip the call
+for India rather than spending it on a 404; the section says the coverage is
+missing, not neutral, and that Indian discussion is thin, so silence is not
+indifference.
 
 ### Phase 5 — Macro (≈3 days)
 

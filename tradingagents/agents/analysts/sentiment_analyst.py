@@ -3,9 +3,11 @@
 The node fetches its sources before calling the model and puts them in the
 prompt, so the model reports on data it was given rather than inventing posts:
 
-  1. News headlines: Yahoo Finance
-  2. StockTwits messages: the cashtag stream, with Bullish/Bearish tags
-  3. Reddit posts: r/wallstreetbets, r/stocks, r/investing, or crypto communities for a crypto pair
+  1. News headlines: Yahoo Finance, or Google News plus exchange filings for NSE/BSE
+  2. StockTwits messages: the cashtag stream, with Bullish/Bearish tags (not
+     applicable to NSE/BSE listings, which StockTwits does not cover)
+  3. Reddit posts: r/wallstreetbets, r/stocks, r/investing, India's investing
+     communities for an NSE/BSE listing, or crypto communities for a crypto pair
 
 Each source is trimmed to the analysis window. With a TypeSafe key, the social
 posts are screened by Jev first (see post_screen). These feeds serve recent items
@@ -35,13 +37,18 @@ from tradingagents.agents.structured import (
     invoke_structured_or_freetext,
 )
 from tradingagents.agents.tools import get_news
+from tradingagents.dataflows import markets
 from tradingagents.dataflows.vendors.reddit import (
     CRYPTO_SUBREDDITS,
     DEFAULT_SUBREDDITS,
+    INDIA_SUBREDDITS,
     fetch_reddit_posts,
     subreddits_for,
 )
-from tradingagents.dataflows.vendors.stocktwits import fetch_stocktwits_messages
+from tradingagents.dataflows.vendors.stocktwits import (
+    INDIA_NOT_APPLICABLE,
+    fetch_stocktwits_messages,
+)
 
 
 def _seven_days_back(trade_date: str) -> str:
@@ -77,32 +84,65 @@ def _source_blocks(
     stocktwits_block: str,
     reddit_block: str,
     subreddits: tuple[str, ...],
+    india: bool,
 ) -> str:
     """The live-fetch form: three labelled sources, as the graph has always sent them."""
     if subreddits == DEFAULT_SUBREDDITS:
         character = "r/wallstreetbets is often contrarian/exuberant; r/stocks more measured; r/investing longer-term"
+    elif subreddits == INDIA_SUBREDDITS:
+        character = (
+            "r/IndiaInvestments and r/IndianStockMarket are longer-form; "
+            "r/DalalStreetBets and r/IndianStreetBets are higher-noise retail chatter"
+        )
     elif len(subreddits) > len(CRYPTO_SUBREDDITS):
         character = f"r/{subreddits[0]} leans toward the coin's holders; r/CryptoCurrency and r/CryptoMarkets are broader"
     else:
         character = "r/CryptoCurrency and r/CryptoMarkets are broad crypto communities"
+    if india:
+        news_heading = (
+            f"### News headlines — Google News, GDELT and Indian publishers, past 7 days "
+            f"({start_date} → {end_date})"
+        )
+        stocktwits_heading = "### StockTwits — not applicable to NSE/BSE listings"
+        stocktwits_note = (
+            "StockTwits keys its streams by US cashtags and does not list NSE/BSE "
+            "instruments, so there is no cashtag stream to read. This is missing "
+            "coverage, not neutral sentiment."
+        )
+        reddit_note = (
+            " Indian retail discussion on these communities is thin, so an empty "
+            "section is not evidence of indifference."
+        )
+    else:
+        news_heading = (
+            f"### News headlines — Yahoo Finance, past 7 days ({start_date} → {end_date})"
+        )
+        stocktwits_heading = (
+            "### StockTwits messages — retail-trader social platform indexed by cashtag"
+        )
+        stocktwits_note = (
+            "Fast-moving signal. Each message carries a user-labeled sentiment tag "
+            "(Bullish / Bearish / no-label) plus the message body."
+        )
+        reddit_note = ""
     return f"""## Data sources (pre-fetched, in this prompt)
 
-### News headlines — Yahoo Finance, past 7 days ({start_date} → {end_date})
+{news_heading}
 Institutional framing. Fact-driven, slower-moving signal.
 
 <start_of_news>
 {news_block}
 <end_of_news>
 
-### StockTwits messages — retail-trader social platform indexed by cashtag
-Fast-moving signal. Each message carries a user-labeled sentiment tag (Bullish / Bearish / no-label) plus the message body.
+{stocktwits_heading}
+{stocktwits_note}
 
 <start_of_stocktwits>
 {stocktwits_block}
 <end_of_stocktwits>
 
 ### Reddit posts — {", ".join(f"r/{sub}" for sub in subreddits)} (past 7 days)
-Community discussion, without vote or comment counts. Subreddit character matters ({character}).
+Community discussion, without vote or comment counts. Subreddit character matters ({character}).{reddit_note}
 
 <start_of_reddit>
 {reddit_block}
@@ -156,15 +196,21 @@ def _sentiment_prompt(state, data_pack: str | None = None) -> ChatPromptTemplate
     start_date = _seven_days_back(end_date)
     instrument_context = get_instrument_context_from_state(state)
     subreddits = subreddits_for(ticker)
+    india = markets.is_india(ticker)
 
     if data_pack is None:
         news_block = get_news.func(ticker, start_date, end_date)
         # Pass the analysis window so a historical run trims social posts to it
         # instead of leaking today's chatter into a backtest (#1220).
         screen = jev_screen(ticker)
-        stocktwits_block = fetch_stocktwits_messages(
-            ticker, limit=30, start_date=start_date, end_date=end_date, screen=screen
-        )
+        if india:
+            # No cashtag stream exists for an NSE/BSE listing; asking would spend
+            # a request on a 404, and the 404 would read as silence.
+            stocktwits_block = INDIA_NOT_APPLICABLE
+        else:
+            stocktwits_block = fetch_stocktwits_messages(
+                ticker, limit=30, start_date=start_date, end_date=end_date, screen=screen
+            )
         reddit_block = fetch_reddit_posts(
             ticker, subreddits, start_date=start_date, end_date=end_date, screen=screen
         )
@@ -175,6 +221,7 @@ def _sentiment_prompt(state, data_pack: str | None = None) -> ChatPromptTemplate
             stocktwits_block=stocktwits_block,
             reddit_block=reddit_block,
             subreddits=subreddits,
+            india=india,
         )
     else:
         sources = _DATA_PACK_HEADER + data_pack

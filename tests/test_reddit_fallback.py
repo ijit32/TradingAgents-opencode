@@ -1,5 +1,6 @@
-"""Tests for the Reddit RSS fetcher: one combined request, its 429 backoff, and
-chunked-transfer error handling (#1024)."""
+"""Tests for the Reddit RSS fetcher: one combined request, its 429 backoff,
+chunked-transfer error handling (#1024), and the market routing that picks the
+subreddits and the search term (crypto, India, US)."""
 
 from __future__ import annotations
 
@@ -333,3 +334,66 @@ def test_a_crypto_pair_is_fetched_from_its_communities_in_one_request():
     query, subs = fetch.call_args.args[:2]
     assert (query, subs) == ("ETH", "ethereum+CryptoCurrency+CryptoMarkets")
     assert "r/wallstreetbets" not in out
+
+
+_INDIA_FEED = "IndiaInvestments+IndianStockMarket+DalalStreetBets+IndianStreetBets"
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("ticker", ["TCS.NS", "RELIANCE.NS", "RELIANCE.BO"])
+def test_an_nse_or_bse_listing_is_searched_in_indian_communities(ticker):
+    # The suffix alone decides: no request is spent validating it.
+    assert reddit.subreddits_for(ticker) == reddit.INDIA_SUBREDDITS
+
+
+@pytest.mark.unit
+def test_a_bare_symbol_stays_us_even_when_it_also_names_an_indian_listing():
+    # TCS is the Container Store on the NYSE; TCS.NS is Tata Consultancy. The
+    # bare symbol must not be pulled into the India branch.
+    assert reddit.subreddits_for("TCS") == ("wallstreetbets", "stocks", "investing")
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("ticker", ["TCS.NS", "RELIANCE.BO"])
+def test_an_indian_listing_is_fetched_by_its_bare_symbol_in_one_request(ticker):
+    with patch.object(reddit, "_fetch_subreddit_rss", return_value=[]) as fetch:
+        out = reddit.fetch_reddit_posts(ticker)
+    fetch.assert_called_once()
+    query, subs = fetch.call_args.args[:2]
+    # Reddit text carries "TCS", never "TCS.NS"; the combined feed stays one call.
+    assert (query, subs) == (ticker.split(".")[0], _INDIA_FEED)
+    assert "r/wallstreetbets" not in out
+
+
+@pytest.mark.unit
+def test_an_empty_india_feed_is_reported_as_no_posts_not_as_a_miss():
+    # These communities are low-volume, so an empty result is a real empty
+    # result; it is still phrased as "no posts", never as silence.
+    with patch.object(reddit, "_fetch_subreddit_rss", return_value=[]):
+        out = reddit.fetch_reddit_posts("TCS.NS")
+    assert "no Reddit posts found mentioning TCS.NS" in out
+    assert "not an absence" not in out
+
+
+@pytest.mark.unit
+def test_an_out_of_window_india_feed_is_a_coverage_gap_not_an_absence():
+    posts = [{
+        "title": "TCS results", "created_utc": reddit._iso_to_timestamp("2026-05-20T14:30:00Z"),
+        "selftext": "", "subreddit": "IndiaInvestments",
+    }]
+    with patch.object(reddit, "_fetch_subreddit_rss", return_value=posts):
+        out = reddit.fetch_reddit_posts("TCS.NS", start_date="2024-01-02", end_date="2024-01-05")
+    # The feed only serves the last week, so a 2024 window was never observed:
+    # say that, rather than claim nobody discussed TCS.NS.
+    assert "not an absence of discussion of TCS.NS" in out
+    assert "no Reddit posts found" not in out
+
+
+@pytest.mark.unit
+def test_a_failed_india_fetch_is_unavailable_not_silence():
+    with patch.object(reddit, "_fetch_subreddit_rss", return_value=None):
+        out = reddit.fetch_reddit_posts("TCS.NS")
+    assert "Reddit unavailable" in out
+    assert "this is not an absence of discussion" in out
+    assert "no Reddit posts found" not in out
+

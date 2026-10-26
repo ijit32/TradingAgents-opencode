@@ -166,3 +166,38 @@ def test_the_sentiment_prompt_names_the_subreddits_searched(monkeypatch):
     text = _prompt_text(captured["prompt"])
     assert "r/Bitcoin, r/CryptoCurrency, r/CryptoMarkets" in text
     assert "wallstreetbets" not in text
+
+
+@pytest.mark.unit
+def test_the_sentiment_prompt_skips_stocktwits_for_an_india_listing(monkeypatch):
+    """An NSE/BSE symbol has no StockTwits stream: the prompt must say so
+    instead of reading a 404 as silence, and Reddit must search India's
+    communities rather than the US defaults."""
+    from tradingagents.agents.schemas import SentimentBand, SentimentReport
+
+    calls = []
+
+    def fake_stocktwits(*args, **kwargs):
+        calls.append((args, kwargs))
+        return "st"
+
+    monkeypatch.setattr(sentiment, "fetch_stocktwits_messages", fake_stocktwits)
+    monkeypatch.setattr(sentiment, "fetch_reddit_posts", lambda *a, **k: "rd")
+    monkeypatch.setattr(sentiment.get_news, "func", lambda *a, **k: "news", raising=False)
+    captured = {}
+    llm = _capturing_llm(captured, SentimentReport(
+        overall_band=SentimentBand.NEUTRAL, overall_score=5.0, confidence="low", narrative="n",
+    ))
+    sentiment.create_sentiment_analyst(llm)({
+        "company_of_interest": "TCS.NS", "trade_date": "2026-01-15",
+        "asset_type": "stock", "messages": [],
+    })
+    text = _prompt_text(captured["prompt"])
+
+    assert calls == []
+    assert "not applicable to NSE/BSE listings" in text
+    assert "not evidence of indifference" in text
+    assert "r/IndiaInvestments" in text
+    assert "Google News" in text
+    assert "wallstreetbets" not in text
+    assert "leans toward the coin" not in text
