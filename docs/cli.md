@@ -86,6 +86,44 @@ export ALPHA_VANTAGE_API_KEY=...   # Alpha Vantage
 export TYPESAFE_API_KEY=...        # Jev social-post screening (optional)
 ```
 
+### FRED macro data
+
+`FRED_API_KEY` is optional. FRED is the only macro source here that asks for a key, and it
+buys three things: the US and other FRED macro aliases, the four India series that FRED
+carries (`cpi_india`, `gsec_10y_india`, `iip_india`, `real_gdp_india`), and the point-in-time
+pin on both. An India run does not need it for the rupee, India VIX or the Nifty/Sensex
+quotes — those come from Yahoo. Without the key the FRED-backed aliases say their coverage
+is missing and the run carries on; the currency, VIX and index sections are unaffected.
+
+The key is also what makes a backtest honest. Every FRED request sets `realtime_start` and
+`realtime_end` to the analysis date (clamped to FRED's own today), so a historical run reads
+the values that had been published by then, not today's revision. There is deliberately no
+fallback to the latest revision when the key is absent: that would leak future data into a
+past decision, so the series is reported as missing instead.
+
+The key is free and needs no card. Sign in or register at
+<https://fred.stlouisfed.org/>, open
+<https://fred.stlouisfed.org/docs/api/api_key.html>, request a key, accept the terms and
+copy the 32-character value it shows and emails you.
+
+Put it in the `.env` at the repo root (loaded at import; `.env.example` has the commented
+line) or export it in the shell:
+
+```bash
+FRED_API_KEY=abcdef0123456789abcdef0123456789
+```
+
+Docker Compose reads the same `.env`; an OpenCode plugin run inherits the environment of the
+OpenCode process, or the repo `.env` when the worker starts there. Keep the key out of git —
+`.env` is ignored — and do not share it: FRED rate-limits per key.
+
+To confirm it works, run the source probe; with a key its FRED candidates print the pinned
+observation for each series, not only the existence check they print without one:
+
+```bash
+uv run python scripts/probe_india_sources.py
+```
+
 For Azure OpenAI, copy `.env.enterprise.example` to `.env.enterprise` and fill in your
 credentials.
 

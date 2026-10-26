@@ -318,7 +318,10 @@ India needs no configuration either. A `.NS` or `.BO` suffix is what marks an NS
 listing — a bare symbol stays US — and from that suffix the prompts and packs get INR
 reporting and the India macro, news and social coverage on their own. For India, the only
 optional key is `FRED_API_KEY`, used for the India CPI, g-sec, IIP and GDP series; without it
-those series say they are missing. Nothing in the protocol changes: the worker protocol,
+those series say they are missing. The key is free from
+<https://fred.stlouisfed.org/docs/api/api_key.html> and, besides those series, lets a
+historical run read macro values as they were published rather than as later revised.
+Nothing in the protocol changes: the worker protocol,
 `protocol.schema.json` and the generated types are untouched, and a US ticker behaves as
 before. A portfolio given as an object takes an ISO currency code, and an INR book on an NSE
 listing is labelled in INR rather than converted.
