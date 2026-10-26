@@ -44,15 +44,16 @@ _TOOL_SENTENCE = (
     "Use the available tools: get_news(start_date, end_date) for news about the {asset_label}"
     " under analysis, get_global_news(curr_date, look_back_days, limit) for broader macroeconomic"
     " news, get_macro_indicators(indicator, curr_date, look_back_days) to ground macro commentary"
-    " in actual data from FRED (e.g. 'cpi', 'core_pce', 'unemployment', 'fed_funds_rate',"
-    " '10y_treasury', 'yield_curve'), and get_prediction_markets(topic, limit) for live"
+    " in actual data (e.g. 'cpi', 'core_pce', 'unemployment', 'fed_funds_rate',"
+    " '10y_treasury', 'yield_curve'; for an NSE/BSE listing use 'usd_inr', 'nifty_50',"
+    " 'india_vix', 'cpi_india'), and get_prediction_markets(topic, limit) for live"
     " market-implied probabilities of forward-looking events (e.g. 'Fed rate cut', 'recession 2026',"
     " geopolitical or sector events)."
 )
 
 _NO_TOOL_SENTENCE = (
     "The data pack below holds the {asset_label} news for the analysis window, broader global"
-    " and macro news, FRED macro series, and prediction-market probabilities, all collected as of"
+    " and macro news, macro series, and prediction-market probabilities, all collected as of"
     " {current_date}. Cite only what it contains; do not describe these as tool calls you made."
 )
 

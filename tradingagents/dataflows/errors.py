@@ -7,6 +7,7 @@ these (or a thin vendor-named subclass) and needs no new ``except`` clause.
 
     VendorError
     ├── NoMarketDataError          no usable rows (empty result OR stale data)
+    ├── VendorDeclinedError        not this vendor's market/alias -> skip silently
     ├── VendorUnavailableError     throttled or failed request -> skip to next vendor
     └── VendorNotConfiguredError   missing API key/config -> vendor unavailable
 
@@ -47,6 +48,17 @@ class VendorUnavailableError(VendorError):
     """A vendor could not answer: it throttled or failed the request.
 
     Says nothing about the instrument; the router skips to the next vendor.
+    """
+
+
+class VendorDeclinedError(VendorError):
+    """A vendor does not serve this market, symbol or alias.
+
+    Distinct from ``NoMarketDataError`` on purpose: the vendor never checked, so
+    the instrument's data may still exist. The router moves to the next vendor
+    without recording a "no data" verdict, which would otherwise win over a
+    later vendor's missing key and tell an analyst that a US macro alias has no
+    market data. A self-gating India vendor raises this for a non-India alias.
     """
 
 

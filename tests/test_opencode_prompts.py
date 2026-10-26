@@ -124,7 +124,7 @@ from tradingagents.agents.analysts import (  # noqa: E402
 )
 
 SENTIMENT_PACK = "# Sentiment data pack — NVDA\n\n## News headlines\n\nNVDA beats\n"
-NEWS_PACK = "# News data pack — NVDA\n\n## FRED macro series\n\n### cpi\n\n3.1%\n"
+NEWS_PACK = "# News data pack — NVDA\n\n## Macro series\n\n### cpi\n\n3.1%\n"
 FUNDAMENTALS_PACK = "# Fundamentals data pack — NVDA\n\n## Income statement (quarterly)\n\nrevenue,1\n"
 
 # builder, pack, the pack-form marker, and whether the pack closes the prompt.

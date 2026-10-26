@@ -150,6 +150,17 @@ def build_default_config() -> dict:
             "ECB Bank of England BOJ central bank policy",
             "oil commodities supply chain energy",
         ],
+        # Market overlays for the queries above, selected by the run's instrument
+        # suffix. Only an NSE/BSE ticker picks "IN"; with no ticker (a US run) or
+        # a market with no overlay, the US/global list above is used unchanged.
+        "global_news_queries_by_market": {
+            "IN": [
+                "RBI repo rate monetary policy inflation India",
+                "NSE Nifty Sensex earnings results quarterly",
+                "rupee USD/INR FII foreign institutional flows",
+                "SEBI corporate governance India regulatory",
+            ],
+        },
         # Data vendor configuration
         # Category-level configuration (default for all tools in category).
         # The configured value is the exact vendor chain — requests are NOT silently
@@ -166,7 +177,13 @@ def build_default_config() -> dict:
             # India news is searched by issuer name from NSE/BSE listings; NSE
             # self-gates every other ticker, so Yahoo serves the US path unchanged.
             "news_data": "nse,yfinance",  # Options: nse (NSE/BSE), alpha_vantage, yfinance
-            "macro_data": "fred",                # Options: fred (needs FRED_API_KEY)
+            # Order matters: india_macro answers the India aliases (USD/INR,
+            # India VIX, Nifty/Sensex, and the FRED-mirrored India series) and
+            # raises NoMarketDataError for every non-India alias, so the router
+            # moves on to FRED for the existing US/EU aliases. FRED first would
+            # answer an unknown India alias with a guidance string and stop the
+            # chain, hiding that another vendor could serve it.
+            "macro_data": "india_macro,fred",   # Options: india_macro, fred (needs FRED_API_KEY)
             "prediction_markets": "polymarket",  # Options: polymarket (keyless)
         },
         # Tool-level configuration (takes precedence over category-level)

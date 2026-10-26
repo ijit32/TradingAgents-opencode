@@ -196,6 +196,7 @@ def get_global_news(
     curr_date: Annotated[str, "Current date in yyyy-mm-dd format"],
     look_back_days: Annotated[int | None, "Days to look back; omit to use the configured default"] = None,
     limit: Annotated[int | None, "Max articles to return; omit to use the configured default"] = None,
+    ticker: Annotated[str, InjectedState("company_of_interest")] = "",
     trade_date: Annotated[str, InjectedState("trade_date")] = "",
 ) -> str:
     """
@@ -203,16 +204,22 @@ def get_global_news(
     Uses the configured news_data vendor. Defaults for look_back_days and
     limit come from DEFAULT_CONFIG (global_news_lookback_days,
     global_news_article_limit); pass explicit values to override.
+    The run's instrument selects the market's news phrases (an NSE/BSE run gets
+    India macro headlines); it is not a search term.
 
     Args:
         curr_date (str): Current date in yyyy-mm-dd format
         look_back_days (int): Number of days to look back; omit to inherit config
         limit (int): Maximum number of articles to return; omit to inherit config
+        ticker (str): Injected from graph state; selects only a market's query
+            overlay and is never a search term.
 
     Returns:
         str: A formatted string containing global news data
     """
-    return route_to_vendor("get_global_news", as_of(curr_date, trade_date), look_back_days, limit)
+    return route_to_vendor(
+        "get_global_news", as_of(curr_date, trade_date), look_back_days, limit, ticker
+    )
 
 
 @tool
@@ -237,7 +244,10 @@ def get_macro_indicators(
         "'unemployment', 'fed_funds_rate', '10y_treasury', 'yield_curve', "
         "'real_gdp', 'vix', euro-area aliases such as 'ecb_deposit_rate', "
         "'euro_hicp', 'euro_core_hicp', 'euro_real_gdp', 'germany_10y', "
-        "'france_10y', 'eur_usd', or a raw FRED series ID such as 'CPIAUCSL'.",
+        "'france_10y', 'eur_usd', India aliases such as 'usd_inr', 'india_vix', "
+        "'nifty_50', 'sensex', 'cpi_india', 'gsec_10y_india', 'iip_india', "
+        "'real_gdp_india' (the last four need FRED_API_KEY; 'repo_rate_india' "
+        "is not covered), or a raw FRED series ID such as 'CPIAUCSL'.",
     ],
     curr_date: Annotated[str, "Current date in yyyy-mm-dd format; the end of the window"],
     look_back_days: Annotated[
@@ -246,12 +256,16 @@ def get_macro_indicators(
     trade_date: Annotated[str, InjectedState("trade_date")] = "",
 ) -> str:
     """
-    Retrieve a macroeconomic indicator time series from FRED (Federal Reserve
-    Economic Data): policy rates, Treasury yields, inflation, labor, and growth,
-    for the US and, through FRED's mirrored series, the euro area.
+    Retrieve a macroeconomic indicator time series: policy rates, Treasury
+    yields, inflation, labor, growth, exchange rates, and equity-index levels
+    for the US, the euro area, and India.
     Returns the series title, units, frequency, the latest value, the change
     over the window, and a recent observation table. Uses the configured
     macro_data vendor.
+
+    India aliases: 'usd_inr', 'india_vix', 'nifty_50', 'sensex', 'cpi_india',
+    'gsec_10y_india', 'iip_india', 'real_gdp_india' (the last four need
+    FRED_API_KEY), and 'repo_rate_india', which is not covered.
 
     Args:
         indicator (str): Friendly alias or raw FRED series ID

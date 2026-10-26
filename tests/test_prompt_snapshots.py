@@ -117,7 +117,7 @@ STAGES = {
 GOLDEN = {
     "market_analyst": "dc1d3eabefc97ce1948cd1b22da4b6d8c269e82fc6cb609531a2d964559a5a25",
     "sentiment_analyst": "9ed42895817c4e1fe008a0e019298f7d353755073b113689a0960104d8a16ae3",
-    "news_analyst": "205c5edc124674f0cec47186180efaeb2a0dbfc0ff9c9f47ff103e8410ae91e7",
+    "news_analyst": "55fd361b4df8deed3cda939c5f37059d4bbae0b7e06a733c1bb9d92abddafeb9",
     "fundamentals_analyst": "92664c85ac82a3a8756455fb433c1410e5e8fd8669206c65b6b255cb69758e0d",
     "bull_researcher_1": "205402ddce1203980bf53f31cb6e55bd030d971d87ff3475ee2a6f74e398740d",
     "bear_researcher_1": "f10f4dba79a49697caedc03edf4379db34791dd76c0ba2e86a402728f643377f",

@@ -62,6 +62,17 @@ MACRO_INDICATORS = (
     "yield_curve",
 )
 
+# An NSE/BSE run needs the rupee, volatility and index levels (keyless Yahoo)
+# plus the two FRED series a policy view needs; the repo rate is not included
+# because it has no free point-in-time source.
+INDIA_MACRO_INDICATORS = (
+    "cpi_india",
+    "gsec_10y_india",
+    "usd_inr",
+    "india_vix",
+    "nifty_50",
+)
+
 
 @dataclass
 class Section:
@@ -386,6 +397,8 @@ def collect_news(request: AnalysisRequest) -> DataPack:
 
     ticker = request.ticker
     trade_date = request.trade_date
+    india = markets.is_india(ticker)
+    indicators = INDIA_MACRO_INDICATORS if india else MACRO_INDICATORS
     start, end = _window(trade_date, NEWS_WINDOW_DAYS)
     year = trade_date[:4]
     notes: list[str] = []
@@ -400,14 +413,18 @@ def collect_news(request: AnalysisRequest) -> DataPack:
     global_news = _attempt(
         "get_global_news",
         lambda: get_global_news.func(
-            curr_date=trade_date, look_back_days=None, limit=None, trade_date=trade_date
+            curr_date=trade_date,
+            look_back_days=None,
+            limit=None,
+            trade_date=trade_date,
+            ticker=ticker,
         ),
         sources=sources,
         notes=notes,
     )
 
     macro_blocks = []
-    for indicator in MACRO_INDICATORS:
+    for indicator in indicators:
         text = _attempt(
             f"get_macro_indicators[{indicator}]",
             lambda name=indicator: get_macro_indicators.func(
@@ -439,13 +456,24 @@ def collect_news(request: AnalysisRequest) -> DataPack:
         "lookback ending on the analysis date. Collected once, before the analyst was called. "
         "Nothing later than the analysis date is included."
     )
-    if markets.is_india(ticker):
+    if india:
         header += (
             "\n\nCompany news for an NSE/BSE listing is searched by issuer name across "
             "Google News, GDELT and the Indian publisher feeds, and the company-news "
             "section also carries the exchange's own filing record for the window. "
             "Headlines name their publisher, and a source that could not be reached "
             "is reported as a gap, not as an absence of news."
+            "\n\nThe macro block carries USD/INR, India VIX, Nifty 50, CPI and the "
+            "10-year g-sec. USD/INR, India VIX and Nifty 50 come from Yahoo and need "
+            "no key; CPI and the 10-year g-sec are FRED-backed series that need "
+            "FRED_API_KEY, and without it they report themselves missing rather than "
+            "flat. The RBI policy repo rate has no free point-in-time series here, so "
+            "it is absent by design."
+        )
+        notes.append(
+            "India macro: the RBI policy repo rate is not in the pack — no free "
+            "point-in-time series is available here — so its absence is by design, "
+            "not a vendor failure"
         )
     sections = [
         Section(
@@ -462,7 +490,7 @@ def collect_news(request: AnalysisRequest) -> DataPack:
         ),
         Section(
             "macro",
-            "FRED macro series",
+            "Macro series",
             "\n\n".join(macro_blocks).strip(),
             trim_rank=_NEWS_TRIM["macro"],
         ),

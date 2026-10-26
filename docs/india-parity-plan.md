@@ -1,7 +1,7 @@
 # India (NSE/BSE) parity — implementation plan
 
-Status: in progress. Phases 0, 1, 2a, 2c, 3 and 4 have shipped; 2b is deferred
-behind the Phase 2a gate and §13; Phases 5–7 remain.
+Status: in progress. Phases 0, 1, 2a, 2c, 3, 4 and 5 have shipped; 2b is deferred
+behind the Phase 2a gate and §13; Phases 6–7 remain.
 
 Scope: make a run on an NSE or BSE listing as complete as a US run — prices,
 technicals, fundamentals as filed, company news, exchange filings, social
@@ -112,12 +112,12 @@ the only place suffix knowledge lives outside `benchmark_map`.
 `tradingagents/dataflows/router.py` gains entries only:
 
 ```python
-VENDOR_METHODS["get_income_statement"]["nse_filings"] = nse.get_income_statement
-VENDOR_METHODS["get_balance_sheet"]["nse_filings"]    = nse.get_balance_sheet
-VENDOR_METHODS["get_cashflow"]["nse_filings"]         = nse.get_cashflow
-VENDOR_METHODS["get_fundamentals"]["nse_filings"]     = nse.get_fundamentals
-VENDOR_METHODS["get_insider_transactions"]["nse_pit"] = nse.get_insider_transactions
-VENDOR_METHODS["get_news"]["india_news"]              = india_news.get_news
+VENDOR_METHODS["get_income_statement"]["nse"]         = nse.get_income_statement
+VENDOR_METHODS["get_balance_sheet"]["nse"]            = nse.get_balance_sheet
+VENDOR_METHODS["get_cashflow"]["nse"]                 = nse.get_cashflow
+VENDOR_METHODS["get_fundamentals"]["nse"]             = nse.get_fundamentals
+VENDOR_METHODS["get_insider_transactions"]["nse"]     = nse.get_insider_transactions
+VENDOR_METHODS["get_news"]["nse"]                     = india_news.get_news
 VENDOR_METHODS["get_macro_indicators"]["india_macro"] = india_macro.get_macro_data
 ```
 
@@ -127,9 +127,9 @@ Default chains in `default_config.py`:
 "data_vendors": {
     "core_stock_apis":      "yfinance",
     "technical_indicators": "yfinance",
-    "fundamental_data":     "sec_edgar,nse_filings,yfinance",
-    "news_data":            "yfinance,india_news,nse_pit",
-    "macro_data":           "fred,india_macro",
+    "fundamental_data":     "sec_edgar,nse,yfinance",
+    "news_data":            "nse,yfinance",
+    "macro_data":           "india_macro,fred",
     "prediction_markets":   "polymarket",
 },
 ```
@@ -138,7 +138,14 @@ The router already filters a chain down to vendors that implement a given method
 (`vendor_chain = [v for v in explicit if v in VENDOR_METHODS[method]]`), so one
 shared list works across `get_news` / `get_global_news` /
 `get_insider_transactions`. US runs are unchanged: `sec_edgar` still answers
-first and `yfinance` answers before `india_news` runs.
+first, NSE declines a US ticker, and Yahoo serves it as before.
+
+`macro_data` is ordered `india_macro,fred` because FRED answers an alias it does
+not know with a guidance string rather than an exception; putting FRED first
+would let that string stop the chain before the India alias reached its vendor.
+`india_macro` raises `VendorDeclinedError` for every non-India alias, which is a
+"not mine" signal, not a no-data verdict, so FRED's missing key or output stays
+visible for a US request.
 
 Failure mapping every India vendor must follow:
 
@@ -432,13 +439,18 @@ GET https://news.google.com/rss/search?q=<query>&hl=en-IN&gl=IN&ceid=IN:en
 | `usd_inr` | Yahoo `INR=X` |
 | `india_vix` | Yahoo `^INDIAVIX` |
 | `nifty_50`, `sensex` | Yahoo `^NSEI`, `^BSESN` (level + trailing return) |
-| `cpi_india`, `gsec_10y_india`, `iip_india`, `real_gdp_india` | FRED aliases, **only when `FRED_API_KEY` is set**; IDs verified by the probe script before being committed |
+| `cpi_india` | FRED `CPALTT01INM659N`, CPI growth rate same period previous year |
+| `gsec_10y_india` | FRED `INDIRLTLT01STM`, 10-year g-sec yield, percent |
+| `iip_india` | FRED `INDPROINDMISMEI`, industrial production index, 2015=100 |
+| `real_gdp_india` | FRED `INDGDPRQPSMEI`, real GDP growth rate same period previous year |
 | `repo_rate_india` | not covered. Returns an explicit "no free point-in-time source" notice. |
 
+The four FRED aliases are served only when `FRED_API_KEY` is set; without it
+they return an explicit missing-coverage notice rather than a flat reading.
 FRED's India series are vintage-pinned, so they satisfy §3.3 rule 1. The probe
 prints, per candidate ID: existence, title, frequency, last observation, and
-whether a realtime vintage parameter is accepted. Only IDs that pass go into
-`MACRO_SERIES`.
+whether a realtime vintage parameter is accepted. The shipped probe verified all
+four IDs keylessly on 2026-10-26; only the vintage-pin branch needs a key.
 
 The repo-rate gap is a build-vs-buy item (§13), not something to paper over with
 a scraped homepage value.
@@ -611,7 +623,7 @@ indifference.
 ### Phase 5 — Macro (≈3 days)
 
 - `scripts/probe_india_sources.py`, then `india_macro.py` with §5.6 aliases.
-- `collect.py`: `MACRO_INDICATORS_INDIA = ("cpi_india", "gsec_10y_india",
+- `collect.py`: `INDIA_MACRO_INDICATORS = ("cpi_india", "gsec_10y_india",
   "usd_inr", "india_vix", "nifty_50")`, selected by `market_for(ticker)`.
   Section title becomes "Macro series" for both markets.
 - `default_config`: `global_news_queries_by_market = {"IN": [...]}`;
@@ -622,6 +634,21 @@ indifference.
 
 Done when: an `AAPL` news pack has the same six series and title text as today; a
 `RELIANCE.NS` pack has the India series and India-phrased global news queries.
+
+**Shipped 2026-10-26.** `india_macro` serves the four Yahoo quotes (clipped to
+`as_of_date`, no future close) and delegates the four FRED aliases to
+`fred.get_macro_data` so the realtime vintage pin is reused. A missing
+`FRED_API_KEY` and `repo_rate_india` both return explicit gap notices, never a
+zero or a scraped current value. The probe verified every Yahoo alias and every
+FRED ID keylessly (the vintage-pin branch needs a key). The default macro chain
+is `india_macro,fred`: a non-India alias is a `VendorDeclinedError`, so the
+router falls through without turning the decline into `NO_DATA_AVAILABLE` and
+masking FRED's real answer. The news pack switches to
+`INDIA_MACRO_INDICATORS`, titles the block "Macro series", records the repo-rate
+gap as a note, and passes the run's ticker to `get_global_news` so an NSE/BSE
+run searches India-phrased headlines while `AAPL` keeps the configured global
+list unchanged. The Graph news analyst also gets the India aliases in its tool
+description and prompt.
 
 ### Phase 6 — Reporting currency and portfolio (≈2 days)
 
@@ -710,27 +737,30 @@ worker, and the plugin's stage orchestration are untouched.
 "india": {
     "preferred_exchange": "NSE",            # .NS preferred when both listings exist
     "statement_basis": "consolidated",      # consolidated | standalone
-    "announcements_lookback_days": 7,
+    "announcements_lookback_days": 90,
     "gdelt_enabled": True,
     "publisher_feeds_enabled": True,
     "integrated_filings_page_size": 2000,
     "request_timeout_seconds": 30,
-    "min_interval_seconds": {"nse": 2.0, "archives": 1.0, "gdelt": 6.0, "google_news": 2.0},
+    "min_interval_seconds": {
+        "nse": 2.0, "archives": 1.0, "gdelt": 6.0,
+        "google_news": 2.0, "publishers": 2.0,
+    },
 },
 "global_news_queries_by_market": {
     "IN": [
         "RBI repo rate monetary policy inflation India",
-        "NSE Nifty Sensex market outlook earnings",
-        "rupee dollar FII flows India markets",
-        "SEBI regulation corporate governance India",
+        "NSE Nifty Sensex earnings results quarterly",
+        "rupee USD/INR FII foreign institutional flows",
+        "SEBI corporate governance India regulatory",
     ],
 },
-"india_macro_indicators": ["cpi_india", "gsec_10y_india", "usd_inr", "india_vix", "nifty_50"],
 "india_symbol_aliases": {},                  # BSE<->NSE overrides
 ```
 
-Environment overrides follow the existing `TRADINGAGENTS_*` pattern. Nothing new
-is required to run India; `FRED_API_KEY` stays the only optional key.
+The news pack's India series list is `INDIA_MACRO_INDICATORS` in `collect.py`,
+not a config key: it is the pack's shape, not a vendor choice, and the analyst's
+tool still accepts any alias. `FRED_API_KEY` stays the only optional key.
 
 ---
 

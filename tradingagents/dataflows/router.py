@@ -3,6 +3,7 @@ import logging
 from tradingagents.dataflows.config import get_config
 from tradingagents.dataflows.errors import (
     NoMarketDataError,
+    VendorDeclinedError,
     VendorNotConfiguredError,
     VendorUnavailableError,
 )
@@ -18,6 +19,9 @@ from tradingagents.dataflows.vendors.alpha_vantage import (
     get_stock as get_alpha_vantage_stock,
 )
 from tradingagents.dataflows.vendors.fred import get_macro_data as get_fred_macro_data
+from tradingagents.dataflows.vendors.india_macro import (
+    get_macro_data as get_india_macro_data,
+)
 from tradingagents.dataflows.vendors.india_news import get_news as get_india_news
 from tradingagents.dataflows.vendors.nse.fundamentals import (
     get_fundamentals as get_nse_fundamentals,
@@ -150,6 +154,7 @@ VENDOR_METHODS = {
     },
     # macro_data
     "get_macro_indicators": {
+        "india_macro": get_india_macro_data,
         "fred": get_fred_macro_data,
     },
     # prediction_markets
@@ -244,6 +249,11 @@ def route_to_vendor(method: str, *args, **kwargs):
 
         try:
             return impl_func(*args, **kwargs)
+        except VendorDeclinedError:
+            # Not this vendor's instrument/market/alias. It never checked, so
+            # this must not become a "no data" verdict: the next vendor may
+            # serve the request, and a later missing key is the real message.
+            continue
         except VendorUnavailableError as e:
             logger.warning("Vendor %r unavailable for %s: %s; trying next vendor.", vendor, method, e)
             # Kept so an all-unavailable chain can say the vendor was the

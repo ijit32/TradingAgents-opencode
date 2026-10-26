@@ -59,7 +59,7 @@ def _sources(
 
 
 @pytest.mark.unit
-class IndiaNewsCompositionTests:
+class TestIndiaNewsComposition:
     def test_us_ticker_is_refused_before_any_request(self):
         with (
             mock.patch.object(google, "fetch") as google_fetch,
@@ -95,7 +95,7 @@ class IndiaNewsCompositionTests:
             mock.patch.object(
                 gdelt,
                 "fetch",
-                return_value=([_article("Reliance Q2 profit rises - GDELT", 3, "reuters.com")], []),
+                return_value=([_article("Reliance Q2 profit rises", 3, "reuters.com")], []),
             ),
             mock.patch.object(publishers, "fetch", return_value=([], [])),
             mock.patch.object(filings, "announcements", return_value=[]),
@@ -203,7 +203,7 @@ class IndiaNewsCompositionTests:
 
 
 @pytest.mark.unit
-class IndiaNewsRoutingTests:
+class TestIndiaNewsRouting:
     """The default chain is ``nse,yfinance``; a US ticker must reach Yahoo unchanged."""
 
     def _chain(self, nse, yfinance):

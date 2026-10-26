@@ -351,10 +351,14 @@ def test_collect_news_covers_macro_and_odds_without_future_data(tmp_path, capsys
 
     assert code == 0
     pack = (root / "data" / "news.md").read_text()
-    for section in ("Global and macro news", "FRED macro series", "Prediction markets"):
+    for section in ("Global and macro news", "Macro series", "Prediction markets"):
         assert section in pack
+    assert "## Macro series" in pack
+    assert "FRED macro series" not in pack
     for indicator in ("cpi", "core_pce", "unemployment", "fed_funds_rate", "10y_treasury", "yield_curve"):
         assert f"### {indicator}" in pack
+    for india_indicator in ("cpi_india", "gsec_10y_india", "usd_inr", "india_vix", "nifty_50"):
+        assert f"### {india_indicator}" not in pack
     for topic in ("Fed rate cut", "recession 2026", "NVDA"):
         assert f"### {topic}" in pack
     assert "searched by issuer name" not in pack
@@ -389,6 +393,33 @@ def test_collect_news_names_the_india_sources(tmp_path, capsys, patched_tools):
     assert "News data pack — RELIANCE.NS as of 2026-10-23" in pack
     assert "searched by issuer name" in pack
     assert "exchange's own filing record" in pack
+    # The India macro set replaces the US one, and the title no longer claims FRED.
+    for india_indicator in ("cpi_india", "gsec_10y_india", "usd_inr", "india_vix", "nifty_50"):
+        assert f"### {india_indicator}\n" in pack
+    for us_indicator in (
+        "cpi",
+        "core_pce",
+        "unemployment",
+        "fed_funds_rate",
+        "10y_treasury",
+        "yield_curve",
+    ):
+        assert f"### {us_indicator}\n" not in pack
+    assert "## Macro series" in pack
+    assert "FRED macro series" not in pack
+    # The header states the caveats as gaps, not as coverage.
+    assert "FRED_API_KEY" in pack
+    assert "repo rate" in pack
+    assert "absent by design" in pack
+    # The index records the repo-rate gap rather than leaving it implicit.
+    index = json.loads((root / "data" / "index.json").read_text())
+    assert any("repo rate" in note for note in index["news"]["notes"])
+
+    # The ticker reaches the news vendor so it can pick the India query overlay,
+    # and the date is still clamped to the analysis date.
+    global_call = next(args for name, args in patched_tools if name == "get_global_news")
+    assert global_call[-1] == "RELIANCE.NS"
+    assert str(global_call[0]) <= "2026-10-23"
 
 
 @pytest.mark.unit

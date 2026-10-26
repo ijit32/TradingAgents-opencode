@@ -6,6 +6,7 @@ from datetime import UTC, datetime
 import yfinance as yf
 from dateutil.relativedelta import relativedelta
 
+from tradingagents.dataflows import markets
 from tradingagents.dataflows.config import get_config
 from tradingagents.dataflows.date_window import coverage_gap, in_window
 from tradingagents.dataflows.errors import VendorUnavailableError
@@ -138,6 +139,7 @@ def get_global_news_yfinance(
     as_of_date: str,
     look_back_days: int | None = None,
     limit: int | None = None,
+    ticker: str = "",
 ) -> str:
     """
     Retrieve global/macro economic news using yfinance Search.
@@ -148,6 +150,9 @@ def get_global_news_yfinance(
             ``global_news_lookback_days`` from the active config.
         limit: Maximum number of articles to return. ``None`` falls back to
             ``global_news_article_limit`` from the active config.
+        ticker: The run's instrument, used only to pick a market overlay for the
+            search phrases. Empty (the default) and every non-India symbol keep
+            the global list unchanged.
 
     Returns:
         Formatted string containing global news articles
@@ -158,6 +163,13 @@ def get_global_news_yfinance(
     if limit is None:
         limit = config["global_news_article_limit"]
     search_queries = config["global_news_queries"]
+
+    # An NSE/BSE run searches India-phrased macro headlines instead. Everything
+    # else — no ticker, a US listing, a market with no overlay, or an empty
+    # overlay — keeps the configured global list exactly as it is.
+    if ticker and markets.is_india(ticker):
+        overlay = config.get("global_news_queries_by_market") or {}
+        search_queries = overlay.get("IN") or search_queries
 
     curr_dt = datetime.strptime(as_of_date, "%Y-%m-%d")
     start_dt = curr_dt - relativedelta(days=look_back_days)
