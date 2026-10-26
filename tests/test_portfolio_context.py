@@ -73,6 +73,92 @@ def test_load_reads_a_valid_file(tmp_path):
     assert load_portfolio(good).positions[0].ticker == "AAPL"
 
 
+# --- currencies -------------------------------------------------------------
+
+RELIANCE_INR = {
+    "cash": 50000.0,
+    "currency": "INR",
+    "positions": [{"ticker": "RELIANCE.NS", "quantity": 3, "average_price": 1234.0}],
+}
+
+
+@pytest.mark.unit
+def test_an_inr_book_validates_and_renders_inr():
+    book = PortfolioContext.model_validate(RELIANCE_INR)
+    text = book.render("RELIANCE.NS")
+    assert book.currency == "INR"
+    assert "Cash available: 50,000.00 INR" in text
+    assert "average price 1,234.00 INR" in text
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("raw, expected", [("inr", "INR"), ("usd ", "USD")])
+def test_currency_labels_are_stripped_and_upper_cased(raw, expected):
+    assert PortfolioContext.model_validate({"currency": raw}).currency == expected
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("bad", ["dollars", "XYZ"])
+def test_an_unknown_currency_is_rejected_and_named(bad):
+    with pytest.raises(ValueError, match=bad):
+        PortfolioContext.model_validate({"currency": bad})
+
+
+@pytest.mark.unit
+def test_load_rejects_an_unknown_currency_naming_the_file_and_value(tmp_path):
+    bad = tmp_path / "p.json"
+    bad.write_text(json.dumps({"currency": "dollars"}))
+    with pytest.raises(ValueError) as exc:
+        load_portfolio(bad)
+    message = str(exc.value)
+    assert "p.json" in message and "dollars" in message
+
+
+@pytest.mark.unit
+def test_a_usd_book_on_an_indian_listing_names_both_currencies_without_converting():
+    """A USD cash figure must never be read as INR, nor size an INR position."""
+    book = PortfolioContext.model_validate(
+        {"cash": 10000.0, "currency": "USD",
+         "positions": [{"ticker": "RELIANCE.NS", "quantity": 2, "average_price": 1200.0}]}
+    )
+    text = book.render("RELIANCE.NS")
+    assert "Cash available: 10,000.00 USD" in text
+    assert "average price 1,200.00 INR" in text
+    assert "Portfolio currency is USD" in text
+    assert "RELIANCE.NS is quoted in INR" in text
+    assert "not converted" in text
+
+
+@pytest.mark.unit
+def test_an_inr_book_on_an_indian_listing_needs_no_two_currency_warning():
+    text = PortfolioContext.model_validate(RELIANCE_INR).render("RELIANCE.NS")
+    assert "Portfolio currency is" not in text
+    assert "not converted" not in text
+
+
+@pytest.mark.unit
+def test_a_book_without_a_currency_does_not_claim_its_cash_is_in_inr():
+    book = PortfolioContext.model_validate(
+        {"cash": 10000.0, "positions": [{"ticker": "RELIANCE.NS", "quantity": 2}]}
+    )
+    text = book.render("RELIANCE.NS")
+    assert "Cash available: 10,000.00\n" in text
+    assert "10,000.00 INR" not in text
+    assert "quoted in INR" in text and "cash currency was not provided" in text
+
+
+@pytest.mark.unit
+def test_an_unverified_quote_currency_makes_no_currency_claim():
+    book = PortfolioContext.model_validate(
+        {"cash": 1000.0, "currency": "GBP",
+         "positions": [{"ticker": "VOD.L", "quantity": 10, "average_price": 1.5}]}
+    )
+    text = book.render("VOD.L")
+    assert "Cash available: 1,000.00 GBP" in text
+    assert "average price 1.50\n" in text  # no ISO code appended to the price
+    assert "quoted in" not in text and "not converted" not in text
+
+
 # --- threading through the graph --------------------------------------------
 
 def _bare_graph(tmp_path):

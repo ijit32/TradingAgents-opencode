@@ -25,6 +25,7 @@ from typing import Any
 
 from tradingagents.agents.rating import run_rating
 from tradingagents.dataflows.date_window import is_historical
+from tradingagents.dataflows.markets import report_currency
 from tradingagents.dataflows.symbols import safe_ticker_component
 from tradingagents.default_config import DEFAULT_CONFIG
 from tradingagents.memory.log import TradingMemoryLog
@@ -95,6 +96,10 @@ def action_memory_begin(run: RunDir, args) -> dict[str, Any]:
         if not ticker or not date:
             continue
         benchmark = resolve_benchmark(ticker, config)
+        # The prompt names the currencies, so a local-currency alpha is not read
+        # downstream as a USD return. Empty means unverified.
+        instrument_currency = report_currency(ticker)
+        benchmark_currency = report_currency(benchmark)
         try:
             raw, alpha, days, resolution = fetch_returns(
                 ticker,
@@ -114,6 +119,8 @@ def action_memory_begin(run: RunDir, args) -> dict[str, Any]:
             alpha,
             benchmark_name=benchmark,
             holding_days=days,
+            instrument_currency=instrument_currency,
+            benchmark_currency=benchmark_currency,
         )
         entries.append(
             {
@@ -125,6 +132,7 @@ def action_memory_begin(run: RunDir, args) -> dict[str, Any]:
                 "holding_days": days,
                 "resolution_date": resolution,
                 "benchmark": benchmark,
+                "benchmark_currency": benchmark_currency,
                 "system": messages[0][1],
                 "user": messages[1][1],
             }
@@ -157,6 +165,8 @@ def action_memory_begin(run: RunDir, args) -> dict[str, Any]:
                     "raw_return",
                     "alpha_return",
                     "holding_days",
+                    "benchmark",
+                    "benchmark_currency",
                     "system",
                     "user",
                 )

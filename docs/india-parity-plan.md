@@ -1,7 +1,7 @@
 # India (NSE/BSE) parity — implementation plan
 
-Status: in progress. Phases 0, 1, 2a, 2c, 3, 4 and 5 have shipped; 2b is deferred
-behind the Phase 2a gate and §13; Phases 6–7 remain.
+Status: in progress. Phases 0, 1, 2a, 2c, 3, 4, 5 and 6 have shipped; 2b is
+deferred behind the Phase 2a gate and §13; Phase 7 remains.
 
 Scope: make a run on an NSE or BSE listing as complete as a US run — prices,
 technicals, fundamentals as filed, company news, exchange filings, social
@@ -251,7 +251,10 @@ tradingagents/dataflows/vendors/yahoo/news.py # India branch for global-news que
 tradingagents/agents/tools.py                 # get_global_news(ticker=...) passthrough
 tradingagents/agents/context.py               # quote-currency line for non-USD instruments
 tradingagents/opencode/collect.py             # market-aware macro pack + section titles
-tradingagents/portfolio/*                     # accept INR as a portfolio currency
+tradingagents/portfolio.py                    # ISO currency allowlist, two-currency render
+tradingagents/memory/reflection.py            # benchmark currency in the reflection prompt
+tradingagents/memory/settlement.py            # thread both currencies into settlement
+tradingagents/opencode/memory.py              # same currencies in the worker's pending entry
 .opencode/plugins/tradingagents/runtime.ts    # allow '&' in ticker regex
 .opencode/plugins/tradingagents/sweep.ts      # same
 docs/cli.md
@@ -668,6 +671,21 @@ description and prompt.
 Done when: a plugin run on `RELIANCE.NS` writes reports whose every figure is
 labelled INR, and the memory entry reads "Alpha vs ^NSEI".
 
+**Shipped 2026-10-26.** `build_instrument_context` appends a quote-currency line
+when `markets.report_currency` returns a known non-USD code — "The instrument is
+quoted in INR; report every price, target, stop, position size and valuation in
+INR, and never convert them to another currency" — and appends nothing for USD or
+an unverified market, so every US prompt stays byte-identical and a `.L` listing
+is never given a guessed pence/pound label. `PortfolioContext.currency` is
+normalized and checked against a short ISO allowlist before the run; `render`
+labels the average price in the instrument's currency and, when the book and the
+instrument disagree, states both currencies and says they are not converted.
+Reflections name the benchmark's currency: an NSE run's prompt reads "Alpha vs
+^NSEI" with "Benchmark ^NSEI is quoted in INR", while a US prompt keeps its exact
+two-line form. The worker writes `benchmark_currency` into the pending entry so
+the plugin's memory pass and the graph settle the same way. Target-price schema
+text was already currency-agnostic and is now guarded by a test.
+
 ### Phase 7 — Docs and release (≈2 days)
 
 - `docs/cli.md` "Markets and tickers": replace the one-line India mention with a
@@ -783,6 +801,9 @@ unless a test is marked `integration`.
 | `tests/test_india_news.py` | query builder with `&`; dedupe; window filter; GDELT 3-month note; `after:`/`before:` format |
 | `tests/test_india_macro.py` | alias table; missing FRED key degrades; repo-rate notice |
 | `tests/test_india_social.py` | India subreddits; no StockTwits call for `.NS`; `TCS` US unaffected |
+| `tests/test_instrument_currency.py` | INR quote line for `.NS`/`.BO`/`^NSEI`; US prompt byte-identical; unverified `.L`/`BRK.B` gets no claim; schema text never says USD |
+| `tests/test_portfolio_context.py` | ISO allowlist; INR accepted and normalized; USD book on INR instrument states both; no invented currency |
+| `tests/test_reflection_currency.py` | alpha names the benchmark currency; US two-line prompt unchanged; unverified benchmark never assumed USD; settlement threads both codes |
 | `tests/test_india_no_us_regression.py` | snapshot: `AAPL` fundamentals, statements, news, macro unchanged |
 | `tests/test_layering.py` | still only `dataflows` imports vendor libs |
 | `.opencode/plugins/tradingagents/*.test.ts` | regex parity, `M&M.NS` accepted |

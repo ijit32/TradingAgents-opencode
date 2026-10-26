@@ -6,6 +6,7 @@ from collections.abc import Mapping
 from typing import Any
 
 from tradingagents.dataflows.date_window import is_historical
+from tradingagents.dataflows.markets import report_currency
 from tradingagents.dataflows.vendors.yahoo.fundamentals import get_company_profile
 
 logger = logging.getLogger(__name__)
@@ -165,6 +166,18 @@ def build_instrument_context(
         context += (
             " Treat it as a crypto asset rather than a company, and do not "
             "assume company fundamentals are available."
+        )
+
+    # A non-USD quote needs saying out loud: without it the model reports an
+    # NSE price target in dollars. Only a currency the market map has verified
+    # is named, so a bare symbol keeps the currency-free wording it always had
+    # and a `.L` / `.T` listing is never assigned a guessed one.
+    currency = report_currency(ticker)
+    if currency and currency != "USD":
+        context += (
+            f" The instrument is quoted in {currency}; report every price, target,"
+            f" stop, position size and valuation in {currency}, and never convert"
+            " them to another currency."
         )
     return context
 

@@ -27,28 +27,66 @@ def reflection_system_prompt(holding_days: int) -> str:
     )
 
 
+def _currency_disclosure(
+    benchmark_name: str, instrument_currency: str, benchmark_currency: str
+) -> str:
+    """The line that keeps a local-currency alpha from being read as a USD return.
+
+    Named only when the instrument's currency is known and non-USD, so every US
+    prompt stays byte-identical to the one the tests snapshot. An empty benchmark
+    currency is reported as unverified rather than assumed to be USD.
+    """
+    if not benchmark_currency:
+        return (
+            f"Benchmark {benchmark_name}'s currency was not verified; the raw figure is in "
+            f"{instrument_currency} and both figures are local-currency percentage returns, "
+            "not converted across currencies."
+        )
+    if benchmark_currency != instrument_currency:
+        return (
+            f"The instrument is quoted in {instrument_currency} and benchmark "
+            f"{benchmark_name} is quoted in {benchmark_currency}; the two figures are in "
+            "different currencies and are local-currency percentage returns, not converted "
+            "across currencies."
+        )
+    return (
+        f"Benchmark {benchmark_name} is quoted in {benchmark_currency}; both figures are "
+        "local-currency percentage returns and are not converted across currencies."
+    )
+
+
 def build_reflection_prompt(
     final_decision: str,
     raw_return: float,
     alpha_return: float,
     benchmark_name: str = "SPY",
     holding_days: int = 5,
+    instrument_currency: str = "",
+    benchmark_currency: str = "",
 ) -> list[tuple[str, str]]:
     """The reflection messages, exactly as the graph sends them.
 
     Extracted so an orchestrator that owns the model call (the OpenCode worker)
     renders the same prompt the graph would: if the two drift, a lesson written
     through one path stops being comparable with the other.
+
+    ``instrument_currency`` and ``benchmark_currency`` are ISO codes, empty when
+    unverified. The disclosure is added only for a known, non-USD instrument, so
+    a US prompt is unchanged; the default arguments reproduce it exactly.
     """
+    raw_line = f"Raw return over {holding_days} trading days: {raw_return:+.1%}"
+    alpha_line = f"Alpha vs {benchmark_name}: {alpha_return:+.1%}"
+    lines = [raw_line, alpha_line]
+    if instrument_currency and instrument_currency != "USD":
+        lines[0] = f"{raw_line} ({instrument_currency})"
+        lines.append(
+            _currency_disclosure(benchmark_name, instrument_currency, benchmark_currency)
+        )
     return [
         ("system", reflection_system_prompt(holding_days)),
         (
             "human",
-            (
-                f"Raw return over {holding_days} trading days: {raw_return:+.1%}\n"
-                f"Alpha vs {benchmark_name}: {alpha_return:+.1%}\n\n"
-                f"Final Decision:\n{final_decision}"
-            ),
+            "\n".join(lines) + f"\n\nFinal Decision:\n{final_decision}",
         ),
     ]
 
@@ -71,6 +109,8 @@ class Reflector:
         alpha_return: float,
         benchmark_name: str = "SPY",
         holding_days: int = 5,
+        instrument_currency: str = "",
+        benchmark_currency: str = "",
     ) -> str:
         """Single reflection call on the final trade decision with outcome context.
 
@@ -79,8 +119,17 @@ class Reflector:
         ``benchmark_name`` is the label used for the alpha line (e.g. ``"SPY"``
         for US tickers, ``"^N225"`` for ``.T`` listings); defaults to SPY for
         callers that haven't been updated to thread the benchmark through.
+        ``instrument_currency`` and ``benchmark_currency`` are the currencies the
+        two figures are quoted in, empty when unverified; a non-USD instrument
+        gets a disclosure so its alpha is not read as a USD return.
         """
         messages = build_reflection_prompt(
-            final_decision, raw_return, alpha_return, benchmark_name, holding_days
+            final_decision,
+            raw_return,
+            alpha_return,
+            benchmark_name,
+            holding_days,
+            instrument_currency,
+            benchmark_currency,
         )
         return self.quick_thinking_llm.invoke(messages).content

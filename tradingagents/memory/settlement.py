@@ -5,6 +5,7 @@ import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 
+from tradingagents.dataflows.markets import report_currency
 from tradingagents.dataflows.symbols import normalize_symbol
 from tradingagents.dataflows.vendors.yahoo.market import get_closes
 
@@ -129,6 +130,10 @@ def settle_pending(ticker: str, memory_log, reflector, config: dict, wait: bool 
         if not pending:
             return result
         benchmark = resolve_benchmark(ticker, config)
+        # The reflection names the currencies so a local-currency alpha is not
+        # read downstream as a USD return. Empty means unverified.
+        instrument_currency = report_currency(ticker)
+        benchmark_currency = report_currency(benchmark)
         for entry in pending:
             try:
                 raw, alpha, days, resolution_date = fetch_returns(
@@ -147,6 +152,8 @@ def settle_pending(ticker: str, memory_log, reflector, config: dict, wait: bool 
                     alpha_return=alpha,
                     benchmark_name=benchmark,
                     holding_days=days,
+                    instrument_currency=instrument_currency,
+                    benchmark_currency=benchmark_currency,
                 )
             except Exception as exc:
                 # Reflection calls a provider: a transient failure leaves the entry
