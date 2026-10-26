@@ -15,7 +15,7 @@ from tradingagents.llm_clients.api_key_env import get_api_key_env
 from tradingagents.llm_clients.model_catalog import get_model_options
 from tradingagents.llm_clients.openai_client import OPENAI_COMPATIBLE_PROVIDERS, SIGNED_IN_PROVIDERS
 
-TICKER_INPUT_EXAMPLES = "SPY, 0700.HK, BTC-USD"
+TICKER_INPUT_EXAMPLES = "SPY, RELIANCE.NS, 0700.HK, BTC-USD"
 
 ANALYST_CHOICES = [
     ("Market Analyst", AnalystType.MARKET),
@@ -39,11 +39,12 @@ def is_valid_ticker_input(value: str) -> bool:
     """Whether a ticker entry is acceptable (charset + length).
 
     Allows the characters Yahoo symbols use, including ``=`` for futures/forex
-    like ``GC=F`` and ``EURUSD=X`` (#980), and ``^`` for indices. Empty input is
-    allowed (it defaults to SPY downstream).
+    like ``GC=F`` and ``EURUSD=X`` (#980), ``^`` for indices, and ``&`` for NSE
+    symbols like ``M&M.NS``. Empty input is allowed (it defaults to SPY
+    downstream).
     """
     v = value.strip()
-    return not v or (all(ch.isalnum() or ch in "._-^=" for ch in v) and len(v) <= 32)
+    return not v or (all(ch.isalnum() or ch in "._-^=&" for ch in v) and len(v) <= 32)
 
 
 def get_ticker() -> str:
@@ -57,7 +58,7 @@ def get_ticker() -> str:
         f"Enter ticker symbol (e.g. {TICKER_INPUT_EXAMPLES}):",
         validate=lambda x: (
             is_valid_ticker_input(x)
-            or "Please enter a valid ticker symbol, e.g. AAPL, 000404.SZ, 0700.HK, GC=F."
+            or "Please enter a valid ticker symbol, e.g. AAPL, RELIANCE.NS, 0700.HK, GC=F."
         ),
         style=questionary.Style(
             [

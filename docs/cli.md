@@ -204,6 +204,14 @@ export TRADINGAGENTS_OUTPUT_LANGUAGE=English TRADINGAGENTS_MAX_DEBATE_ROUNDS=1 T
 tradingagents --ticker NVDA --date 2026-09-23 --analysts market,news,fundamentals --save --no-show
 ```
 
+The same command takes an Indian listing with its exchange suffix; nothing else changes:
+
+```bash
+tradingagents --ticker RELIANCE.NS --date 2026-09-23 --analysts market,news,fundamentals --save --no-show
+```
+
+See [India (NSE and BSE)](india.md) for what the suffix decides.
+
 Each flag skips only its own question. Run without a terminal, a missing answer stops the
 run before it starts and names the flag or variable to set.
 

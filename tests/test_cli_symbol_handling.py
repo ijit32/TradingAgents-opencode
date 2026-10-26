@@ -7,7 +7,12 @@ import pytest
 
 import cli.run as cli_run
 from cli.models import AssetType
-from cli.prompts import detect_asset_type, is_valid_ticker_input, normalize_ticker_symbol
+from cli.prompts import (
+    detect_asset_type,
+    is_valid_ticker_input,
+    normalize_ticker_symbol,
+    parse_ticker,
+)
 from tradingagents.dataflows.symbols import normalize_symbol
 
 
@@ -35,12 +40,29 @@ def test_normalize_symbol_crypto_and_passthrough(raw, expected):
     ("AAPL", True),
     ("0700.HK", True),
     ("^GSPC", True),
+    ("RELIANCE.NS", True),
+    # NSE symbols whose name contains an ampersand (#india)
+    ("M&M.NS", True),
+    ("J&KBANK.NS", True),
     ("", True),                 # empty -> defaults to SPY downstream
     ("bad symbol!", False),     # space + '!' rejected
+    ("M&M NS", False),          # the ampersand does not relax whitespace
     ("A" * 40, False),          # too long
 ])
 def test_ticker_input_validation(value, ok):
     assert is_valid_ticker_input(value) is ok
+
+
+@pytest.mark.parametrize("raw,expected", [
+    ("reliance.ns", "RELIANCE.NS"),
+    ("RELIANCE.BO", "RELIANCE.BO"),
+    ("M&M.NS", "M&M.NS"),
+    ("m&m.ns", "M&M.NS"),
+    ("J&KBANK.NS", "J&KBANK.NS"),
+])
+def test_nse_symbols_survive_cli_parsing(raw, expected):
+    """`--ticker` reaches the data path unchanged for NSE symbols, `&` included."""
+    assert parse_ticker(raw) == expected
 
 
 # --- #981/#982: asset-type classified on the canonical symbol ---

@@ -16,9 +16,9 @@ when it is too sparse to price honestly, the run says so instead of pricing from
 of bars, and names the NSE ticker when it can resolve one. The suffix decides the market, so
 a bare symbol stays US: `TCS` is the US Container Store, `TCS.NS` is Tata Consultancy.
 
-Symbols with `&` work: `M&M.NS`, `M&MFIN.NS`, `J&KBANK.NS`. The Python validator and the
-plugin's ticker check both accept them, the raw symbol is passed to the vendors, and no
-ticker ever reaches a shell.
+Symbols with `&` work: `M&M.NS`, `M&MFIN.NS`, `J&KBANK.NS`. The CLI's ticker check, the
+Python path validator and the plugin's ticker check all accept them, the raw symbol is
+passed to the vendors, and no ticker ever reaches a shell.
 
 Quotes, technicals and the company profile come from Yahoo; the profile is present-day, so a
 historical run withholds it. Statements, shareholding and the filing record come from NSE,
