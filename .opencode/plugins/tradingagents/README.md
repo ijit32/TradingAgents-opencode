@@ -326,6 +326,9 @@ Nothing in the protocol changes: the worker protocol,
 before. A portfolio given as an object takes an ISO currency code, and an INR book on an NSE
 listing is labelled in INR rather than converted.
 
+Coverage, the filed-as-of rules and the known gaps are documented in
+[docs/india.md](../../../docs/india.md).
+
 `memory` settles past decisions and records this one; `html` writes `complete_report.html`
 beside the markdown. `memoryLogPath` and `resultsDir` override the repo defaults
 (`~/.tradingagents/memory/trading_memory.md` and `~/.tradingagents/logs`); empty means the

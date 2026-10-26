@@ -1,7 +1,8 @@
 # India (NSE/BSE) parity — implementation plan
 
 Status: shipped. Phases 0, 1, 2a, 2c, 3, 4, 5, 6 and 7 are in the tree; 2b is
-deferred behind the Phase 2a gate and §13.
+deferred behind the Phase 2a gate and §13. User-facing behaviour, filed-as-of rules
+and known gaps live in [india.md](india.md); this file is the implementation record.
 
 Scope: make a run on an NSE or BSE listing as complete as a US run — prices,
 technicals, fundamentals as filed, company news, exchange filings, social
@@ -703,17 +704,17 @@ text was already currency-agnostic and is now guarded by a test.
 Done when: `docs/cli.md` has no claim the code does not keep, and the root
 README is still OpenCode-only.
 
-**Shipped 2026-10-26.** `docs/cli.md` now has an India subsection under "Markets
-and tickers" (suffix rule, `.BO` sparse-history gap, `&` symbols, live vs filed,
-INR reporting, the StockTwits and repo-rate gaps), an NSE/BSE paragraph beside
-EDGAR in "Fundamentals as filed" (broadcast-date gate, consolidated default,
-latest quarterly P&L plus latest annual balance sheet/cash flow, filings without
-XBRL named, absolute INR, April 2025 structured-history start), and a portfolio
-currency paragraph. The plugin README states that India needs no configuration
-and the protocol is untouched. The changelog gained the missing market-coverage,
-fundamentals and IST-window bullets plus the `&` tickers entry. `AGENTS.md`
-remains untracked, the root README is still OpenCode-only, and §10's table now
-names the tests that exist rather than earlier filenames.
+**Shipped 2026-10-26.** India's user-facing behaviour now lives in
+[`docs/india.md`](india.md) — tickers and the `.BO` sparse-history gap, `&`
+symbols, live vs filed data, INR reporting and portfolio currency, news and
+social, the macro series and the known gaps. `docs/cli.md` keeps only a
+pointer, the general portfolio-currency rules and the FRED key section, each
+linking to the India page where it goes deeper. The plugin README states that
+India needs no configuration, the protocol is untouched, and links the same
+page. The changelog gained the missing market-coverage, fundamentals and
+IST-window bullets plus the `&` tickers entry. `AGENTS.md` remains untracked,
+the root README is still OpenCode-only, and §10's table now names the tests
+that exist rather than earlier filenames.
 
 ---
 
