@@ -19,7 +19,10 @@ export {
   ANALYST_KEYS,
   type PipelineHooks,
   PipelineError,
+  type ProgressEvent,
+  type ProgressPhase,
   type StageSpec,
+  formatProgress,
   modelForRun,
 } from "./runtime"
 export { confineRunDir, resolveRunId, runRootOf } from "./run-dir"

@@ -188,7 +188,14 @@ export interface RunSummary {
   readonly ticker: string
   readonly tradeDate: string
   readonly depth: number
-  readonly stages: readonly { stage: string; status: string; model: string; ms: number; chars: number }[]
+  readonly stages: readonly {
+    stage: string
+    group: string
+    status: string
+    model: string
+    ms: number
+    chars: number
+  }[]
   readonly warnings: readonly string[]
   readonly calls: number
   readonly elapsedMs: number

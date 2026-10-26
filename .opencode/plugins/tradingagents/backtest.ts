@@ -28,6 +28,7 @@ import { mkdir } from "node:fs/promises"
 import { join } from "node:path"
 import { expandHome, readConfig } from "./config"
 import { resolveCandidates, resolveModel } from "./models"
+import { formatDuration } from "./report"
 import type { PipelineHooks } from "./runtime"
 import { PipelineError, modelForRun, progress } from "./runtime"
 import { runAnalysis, settleMemory } from "./pipeline"
@@ -49,6 +50,10 @@ import type {
   BacktestSummaryReply,
 } from "./types"
 import { runWorker } from "./worker"
+
+/** Warning bullets shown before the remainder is folded into one line. */
+const MAX_BACKTEST_WARNINGS = 6
+
 /**
  * Run every cell the sweep has not already logged.
  *
@@ -97,10 +102,10 @@ export async function runBacktest(
   const total = Number(plan.total ?? todo.length)
   const skipped = Number(plan.skipped ?? 0)
 
-  await progress(
-    hooks,
-    `${total} cell(s) in ${sweepId}; ${todo.length} to run${skipped ? `, ${skipped} already logged` : ""}`,
-  )
+  await progress(hooks, {
+    phase: "note",
+    message: `${total} cell(s) in ${sweepId}; ${todo.length} to run${skipped ? `, ${skipped} already logged` : ""}`,
+  })
 
   const warnings: string[] = []
   const cells: BacktestCellResult[] = []
@@ -109,7 +114,12 @@ export async function runBacktest(
   for (let index = 0; index < todo.length; index += 1) {
     if (hooks.signal?.aborted) throw new PipelineError("backtest was cancelled")
     const cell = todo[index]
-    await progress(hooks, `cell ${index + 1}/${todo.length}: ${cell.ticker} ${cell.date}`)
+    await progress(hooks, {
+      phase: "note",
+      index: index + 1,
+      total: todo.length,
+      message: `cell ${index + 1}/${todo.length}: ${cell.ticker} ${cell.date}`,
+    })
     try {
       const summary = await runAnalysis(
         ctx,
@@ -146,7 +156,10 @@ export async function runBacktest(
       const memoryModel = modelForRun(config, lastInput, "memory", "quick")
       await resolveModel(ctx, memoryModel)
       const fallbacks = await resolveCandidates(ctx, config.fallbackModels)
-      await progress(hooks, "settling the sweep's remaining decisions")
+      await progress(hooks, {
+        phase: "settle",
+        message: "settling the sweep's remaining decisions",
+      })
       const outcome = await settleMemory({
         ctx,
         config,
@@ -193,42 +206,46 @@ export async function runBacktest(
   }
 }
 
-/** The tool/command reply: sweep identity, per-cell outcomes, then the scores. */
+/** The tool/command reply: sweep identity, what ran, then the scores. */
 export function renderBacktest(result: BacktestResult): string {
-  const failed = result.cells.filter((cell) => cell.status === "failed").length
   const ran = result.cells.length
+  const failedCells = result.cells.filter((cell) => cell.status === "failed")
   const lines = [
-    "### TradingAgents backtest",
+    `### Backtest \`${result.runId}\``,
     "",
-    `- Sweep: \`${result.runId}\``,
-    `- Directory: \`${result.sweepDir}\``,
-    `- Memory log: \`${result.logPath}\``,
-    `- Cells: ${result.total} planned · ${ran} ran · ${result.skipped} already logged · ${failed} failed`,
-    `- Model calls: ${result.calls} · ${(result.elapsedMs / 1000).toFixed(1)}s`,
+    `\`${result.sweepDir}\` · ${result.total} cells · ${ran} ran · ${result.skipped} already logged · ${failedCells.length} failed`,
+    "",
+    `Model calls ${result.calls} · ${formatDuration(result.elapsedMs)}`,
   ]
 
-  if (ran) {
-    lines.push("", "| # | Ticker | Date | Status | Rating | Calls |", "|---|---|---|---|---|---|")
+  const markdown = result.markdown.trim()
+  if (markdown) {
+    lines.push("", markdown)
+  } else if (ran) {
+    lines.push("", "| # | Ticker | Date | Rating | Calls |", "|---|---|---|---|---|")
     result.cells.forEach((cell, index) => {
       lines.push(
-        `| ${index + 1} | ${cell.ticker} | ${cell.date} | ${cell.status} | ${cell.rating ?? "—"} | ${cell.calls ?? "—"} |`,
+        `| ${index + 1} | ${cell.ticker} | ${cell.date} | ${cell.rating ?? "—"} | ${cell.calls ?? "—"} |`,
       )
     })
-  } else {
-    lines.push("", "Every cell in the grid was already logged; the summary below covers them.")
   }
 
-  for (const cell of result.cells) {
-    if (cell.status === "failed" && cell.error) {
-      lines.push("", `**${cell.ticker} ${cell.date} failed** — ${cell.error}`)
+  if (failedCells.length) {
+    lines.push("", `**Failed cells (${failedCells.length})**`)
+    for (const cell of failedCells) {
+      lines.push(`- ${cell.ticker} ${cell.date} — ${cell.error ?? "failed"}`)
     }
   }
 
-  if (result.markdown.trim()) lines.push("", result.markdown.trim())
-
   if (result.warnings.length) {
-    lines.push("", "**Warnings**", "")
-    for (const warning of result.warnings) lines.push(`- ${warning}`)
+    lines.push("", `**Warnings (${result.warnings.length})**`)
+    for (const warning of result.warnings.slice(0, MAX_BACKTEST_WARNINGS)) {
+      lines.push(`- ${warning}`)
+    }
+    if (result.warnings.length > MAX_BACKTEST_WARNINGS) {
+      const more = result.warnings.length - MAX_BACKTEST_WARNINGS
+      lines.push(`_+${more} more in \`${result.sweepDir}\`_`)
+    }
   }
   return lines.join("\n")
 }

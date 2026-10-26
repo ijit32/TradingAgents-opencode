@@ -38,6 +38,20 @@ import type { MemoryOutcome } from "./memory-pass"
 import { settleMemory } from "./memory-pass"
 import { writeFinalState } from "./report"
 
+/** Human name for a plan group; unknown groups read as their id with spaces. */
+const GROUP_LABELS: Readonly<Record<string, string>> = {
+  analysts: "analysts",
+  research_debate: "research debate",
+  research_manager: "research manager",
+  trader: "trader",
+  risk_debate: "risk debate",
+  portfolio_manager: "portfolio manager",
+}
+
+function groupLabel(name: string): string {
+  return GROUP_LABELS[name] ?? name.replace(/_/g, " ")
+}
+
 export async function runAnalysis(
   ctx: Plugin.Context,
   input: AnalyzeInput,
@@ -136,12 +150,13 @@ export async function runAnalysis(
     })
   }
 
-  await progress(
-    hooks,
-    resumed
+  await progress(hooks, {
+    phase: "start",
+    title: ticker,
+    message: resumed
       ? `resuming ${String(init.run_id ?? "")}`
       : `starting ${String(init.run_id ?? "")} in ${runDir}`,
-  )
+  })
 
   if (input.rerun_from) {
     if (!order.includes(input.rerun_from)) {
@@ -160,10 +175,22 @@ export async function runAnalysis(
   const failures: string[] = []
   let rating: string | undefined
   let aborted = false
+  let groupNumber = 0
 
   for (const group of groups) {
     if (aborted) break
     throwIfAborted(hooks.signal)
+
+    groupNumber += 1
+    const label = groupLabel(group.name)
+    await progress(hooks, {
+      phase: "group",
+      group: group.name,
+      title: label,
+      index: groupNumber,
+      total: groups.length,
+      message: `phase ${groupNumber}/${groups.length}: ${label}`,
+    })
 
     if (group.parallel) {
       const plans: (StagePlan | "skipped")[] = []
@@ -222,6 +249,7 @@ export async function runAnalysis(
   await context.store.replace(context.store.value)
 
   const summaryStages = []
+  const groupOf = new Map(specs.map((spec): [string, string] => [spec.stage, spec.group]))
   for (const stage of order) {
     const record = context.store.value.stages[stage]
     if (!record) continue
@@ -230,6 +258,7 @@ export async function runAnalysis(
       : 0
     summaryStages.push({
       stage,
+      group: groupOf.get(stage) ?? "",
       status: record.status,
       model: record.model,
       ms: record.ms,

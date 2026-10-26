@@ -284,6 +284,26 @@ were 114.5k chars of markdown plus the HTML page, the state log 180.5k, and the 
 Manager quoted the settled lesson in its decision. The resume cost **0 calls, 25 s** and did
 not duplicate the decision.
 
+## What you see in chat
+
+A run posts at most two messages: a start line only when it lasts longer than about four
+seconds, then one final card. Per-stage progress is not chat output — it lives on the
+`trading_analyze` / `trading_backtest` tool card, which carries the phase, group, stage and
+position through `context.progress`. `/ta-report` and `/ta-probe` post exactly one message
+each, and every notice passes `resume: false`, so chat traffic never wakes the agent.
+
+The final card is deliberately compact:
+
+- ticker, date and rating, depth, stage count, model calls, elapsed time, and the run id
+- a one-line timeline: Analysts → Debate → Manager → Trader → Risk → PM
+- at most six warnings, plus the artifact paths
+- no per-stage `ms`/`chars` and no report body — read those with `trading_status`, or
+  `/ta-report` for the report itself
+
+A failure replaces the card with one classified error: `timeout`, `quota`, `freetier`,
+`auth`, or `failed`, with the model and attempt count when known, the failing stage, the
+last three progress lines, and the command that resumes it.
+
 ## Configuration
 
 Options come from the object form of the `plugins` entry in `opencode.json(c)`. Plugins under

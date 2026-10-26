@@ -36,9 +36,41 @@ export interface StageSpec {
   readonly reportKey?: string
 }
 
+/** What a progress event reports about the run. */
+export type ProgressPhase =
+  | "start"
+  | "group"
+  | "collect"
+  | "render"
+  | "generate"
+  | "validate"
+  | "repair"
+  | "accept"
+  | "done"
+  | "skip"
+  | "settle"
+  | "note"
+
+export interface ProgressEvent {
+  readonly phase: ProgressPhase
+  /** The human line, already formatted. */
+  readonly message: string
+  readonly stage?: string
+  readonly title?: string
+  readonly group?: string
+  /** 1-based position, when the event is one of a sequence. */
+  readonly index?: number
+  readonly total?: number
+  readonly model?: string
+}
+
+export function formatProgress(event: ProgressEvent): string {
+  return event.message
+}
+
 export interface PipelineHooks {
-  /** Progress line for the user; failures here must not fail the run. */
-  readonly progress?: (message: string) => Promise<void> | void
+  /** Progress event for the user; failures here must not fail the run. */
+  readonly progress?: (event: ProgressEvent) => Promise<void> | void
   readonly signal?: AbortSignal
 }
 
@@ -162,10 +194,10 @@ function throwIfAborted(signal: AbortSignal | undefined): void {
   if (signal?.aborted) throw new PipelineError("run was cancelled")
 }
 
-async function progress(hooks: PipelineHooks, message: string): Promise<void> {
+async function progress(hooks: PipelineHooks, event: ProgressEvent): Promise<void> {
   if (!hooks.progress) return
   try {
-    await hooks.progress(message)
+    await hooks.progress(event)
   } catch {
     // A failed progress update is not a run failure.
   }
@@ -288,7 +320,13 @@ async function ensurePack(context: RunContext, spec: StageSpec): Promise<void> {
     context.input.rerun === spec.stage || context.input.rerun_from === spec.stage
   if (!forced && (await readTextOrNull(path))) return
 
-  await progress(context.hooks, `collecting ${spec.title.toLowerCase()} data`)
+  await progress(context.hooks, {
+    phase: "collect",
+    stage: spec.stage,
+    title: spec.title,
+    group: spec.group,
+    message: `collecting ${spec.title.toLowerCase()} data`,
+  })
   const reply = await runWorker(
     { action: "collect", runDir: context.runDir, analyst: spec.analyst },
     context.worker,
@@ -297,7 +335,15 @@ async function ensurePack(context: RunContext, spec: StageSpec): Promise<void> {
     throw new PipelineError(`collect failed: ${formatReply(reply.error)}`, spec.stage)
   }
   const notes = Array.isArray(reply.notes) ? reply.notes.map(String) : []
-  if (notes.length) await progress(context.hooks, `${spec.title}: data note — ${notes.join("; ")}`)
+  if (notes.length) {
+    await progress(context.hooks, {
+      phase: "note",
+      stage: spec.stage,
+      title: spec.title,
+      group: spec.group,
+      message: `${spec.title}: data note — ${notes.join("; ")}`,
+    })
+  }
 }
 
 export {

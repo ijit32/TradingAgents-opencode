@@ -11,7 +11,7 @@ import { expandHome, readConfig } from "./config"
 import type { RunSummary } from "./types"
 import { runWorker } from "./worker"
 import type { RunContext, StageSpec } from "./runtime"
-import { PipelineError, readTextOrNull } from "./runtime"
+import { PipelineError, readTextOrNull, titleOf } from "./runtime"
 import { latestRun, readJson, resolveRunId } from "./run-dir"
 
 /**
@@ -75,41 +75,164 @@ async function writeFinalState(
   await writeFile(statePath, `${JSON.stringify(state, null, 2)}\n`, "utf8")
   return reports
 }
-const MAX_PREVIEW = 1_500
 
+type SummaryStage = RunSummary["stages"][number]
+
+/** The six timeline groups, in display order. */
+const GROUPS = [
+  ["analysts", "Analysts"],
+  ["research_debate", "Debate"],
+  ["research_manager", "Manager"],
+  ["trader", "Trader"],
+  ["risk_debate", "Risk"],
+  ["portfolio_manager", "PM"],
+] as const
+
+/** Analyst stages in pipeline order, with the short name shown in the card. */
+const ANALYSTS: readonly (readonly [stage: string, short: string])[] = [
+  ["market_analyst", "market"],
+  ["sentiment_analyst", "sentiment"],
+  ["news_analyst", "news"],
+  ["fundamentals_analyst", "fundamentals"],
+] as const
+
+const MAX_WARNINGS = 6
+
+/** `14.2s`, `6m 14s`, or `1h 2m`. */
+export function formatDuration(ms: number): string {
+  if (ms < 60_000) return `${(ms / 1000).toFixed(1)}s`
+  if (ms < 3_600_000) {
+    const seconds = Math.round(ms / 1000)
+    const rest = seconds % 60
+    return rest === 0 ? `${Math.floor(seconds / 60)}m` : `${Math.floor(seconds / 60)}m ${rest}s`
+  }
+  const minutes = Math.round(ms / 60_000)
+  const rest = minutes % 60
+  return rest === 0 ? `${Math.floor(minutes / 60)}h` : `${Math.floor(minutes / 60)}h ${rest}m`
+}
+
+function glyph(status: string): string {
+  if (status === "ok") return "✓"
+  if (status === "failed") return "✗"
+  return "~"
+}
+
+function rollup(stages: readonly SummaryStage[]): string {
+  if (stages.some((stage) => stage.status === "failed")) return "✗"
+  if (stages.some((stage) => stage.status === "ok")) return "✓"
+  return "~"
+}
+
+/** `2 rounds`, `1 round`, … */
+function roundsText(count: number): string {
+  return count === 1 ? "1 round" : `${count} rounds`
+}
+
+/**
+ * One timeline row.
+ *
+ * A table, not bare lines: GFM soft-wraps consecutive lines into one paragraph,
+ * which would collapse the whole timeline into a single row in the TUI.
+ */
+function row(label: string, mark: string, detail: string): string {
+  return `| ${label} | ${mark} | ${detail} |`
+}
+
+/**
+ * The run card shown when an analysis finishes.
+ *
+ * Compact by design: the timeline rolls each stage group up to one glyph, and
+ * the report bodies stay on disk — `trading_report` reads them back on demand.
+ */
 export function renderSummary(summary: RunSummary): string {
+  const rating = summary.rating ?? "no rating"
   const lines = [
-    "### TradingAgents run",
+    `### ${summary.ticker} · ${summary.tradeDate} · ${rating}`,
     "",
-    `- Ticker: **${summary.ticker}**`,
-    `- Analysis date: ${summary.tradeDate}`,
-    `- Depth: ${summary.depth}`,
-    `- Run: \`${summary.runId}\``,
-    `- Directory: \`${summary.runDir}\``,
-    `- Model calls: ${summary.calls} · ${(summary.elapsedMs / 1000).toFixed(1)}s`,
+    `Depth ${summary.depth} · ${summary.stages.length} stages · ${summary.calls} calls · ` +
+      `${formatDuration(summary.elapsedMs)} · run \`${summary.runId}\``,
+    "",
   ]
-  if (summary.rating) lines.push(`- Rating: **${summary.rating}**`)
-  if (summary.reportMd) lines.push(`- Report: \`${summary.reportMd}\``)
-  if (summary.reportHtml) lines.push(`- HTML: \`${summary.reportHtml}\``)
-  if (summary.stateLog) lines.push(`- State log: \`${summary.stateLog}\``)
-  if (summary.memoryLog) lines.push(`- Memory log: \`${summary.memoryLog}\``)
-  lines.push("", "| Stage | Status | Model | Time | Chars |", "|---|---|---|---|---|")
+
+  const byGroup = new Map<string, SummaryStage[]>()
   for (const stage of summary.stages) {
-    lines.push(
-      `| ${stage.stage} | ${stage.status} | \`${stage.model}\` | ${stage.ms}ms | ${stage.chars} |`,
+    const group = stage.group || ""
+    const bucket = byGroup.get(group)
+    if (bucket) bucket.push(stage)
+    else byGroup.set(group, [stage])
+  }
+
+  const timeline: string[] = []
+  for (const [group, label] of GROUPS) {
+    const stages = byGroup.get(group) ?? []
+    if (!stages.length) continue
+    if (group === "analysts") {
+      const present = ANALYSTS.flatMap(([stage, short]) => {
+        const entry = stages.find((candidate) => candidate.stage === stage)
+        return entry ? [{ entry, short }] : []
+      })
+      const known = new Set<string>(ANALYSTS.map(([stage]) => stage))
+      for (const entry of stages) {
+        if (known.has(entry.stage)) continue
+        present.push({ entry, short: entry.stage.replace(/_analyst$/, "") })
+      }
+      timeline.push(
+        row(
+          label,
+          present.map(({ entry }) => glyph(entry.status)).join(""),
+          present.map(({ short }) => short).join(" · "),
+        ),
+      )
+      continue
+    }
+    if (group === "research_debate") {
+      timeline.push(row(label, rollup(stages), roundsText(Math.max(1, Math.ceil(stages.length / 2)))))
+      continue
+    }
+    if (group === "risk_debate") {
+      timeline.push(row(label, rollup(stages), roundsText(Math.max(1, Math.ceil(stages.length / 3)))))
+      continue
+    }
+    const detail =
+      group === "research_manager"
+        ? "Research manager"
+        : group === "trader"
+          ? "Trader"
+          : rating
+    timeline.push(row(label, rollup(stages), detail))
+  }
+
+  const slowest = summary.stages
+    .filter((stage) => stage.status === "ok")
+    .reduce<SummaryStage | null>(
+      (best, stage) => (best && best.ms >= stage.ms ? best : stage),
+      null,
     )
+  if (timeline.length) {
+    lines.push("| Phase | Status | Detail |", "|---|---|---|", ...timeline)
   }
+  if (slowest && summary.elapsedMs >= 4_000 && slowest.ms * 4 >= summary.elapsedMs) {
+    lines.push("", `_Slowest: ${titleOf(slowest.stage)} ${formatDuration(slowest.ms)}_`)
+  }
+
   if (summary.warnings.length) {
-    lines.push("", "**Warnings**", "")
-    for (const warning of summary.warnings) lines.push(`- ${warning}`)
-  }
-  for (const [key, report] of Object.entries(summary.reports)) {
-    lines.push("", `#### ${key}`, "")
-    lines.push(report.length > MAX_PREVIEW ? `${report.slice(0, MAX_PREVIEW)}…` : report)
-    if (report.length > MAX_PREVIEW) {
-      lines.push("", `_(truncated — full report in \`${summary.runDir}\`)_`)
+    lines.push("", `**Warnings (${summary.warnings.length})**`)
+    for (const warning of summary.warnings.slice(0, MAX_WARNINGS)) lines.push(`- ${warning}`)
+    if (summary.warnings.length > MAX_WARNINGS) {
+      const more = summary.warnings.length - MAX_WARNINGS
+      lines.push(`_+${more} more in \`${summary.runDir}/checkpoint.json\`_`)
     }
   }
+
+  const artifacts: string[] = []
+  if (summary.reportMd) artifacts.push(`- Report \`${summary.reportMd}\``)
+  if (summary.reportHtml) artifacts.push(`- HTML \`${summary.reportHtml}\``)
+  if (summary.memoryLog) artifacts.push(`- Memory \`${summary.memoryLog}\``)
+  if (summary.stateLog) artifacts.push(`- State \`${summary.stateLog}\``)
+  if (artifacts.length) {
+    lines.push("", "**Artifacts**", `- Directory \`${summary.runDir}\``, ...artifacts)
+  }
+
   return lines.join("\n")
 }
 

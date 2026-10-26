@@ -10,7 +10,25 @@ import { describeRun, readReport, renderSummary, runAnalysis } from "./pipeline"
 import { type ProbeInput, runProbe } from "./probe"
 import { assertWorkerPermission } from "./permissions"
 import { errorMarkdown } from "./render"
+import type { ProgressEvent } from "./runtime"
 import type { AnalyzeInput, BacktestInput } from "./types"
+
+/** The structured half of a progress update, minus the human line. */
+function progressMetadata(event: ProgressEvent): Record<string, unknown> {
+  const metadata: Record<string, unknown> = { phase: event.phase }
+  if (event.stage) metadata.stage = event.stage
+  if (event.title) metadata.title = event.title
+  if (event.group) metadata.group = event.group
+  if (event.index !== undefined) metadata.index = event.index
+  if (event.total !== undefined) metadata.total = event.total
+  if (event.model) metadata.model = event.model
+  return metadata
+}
+
+/** Tool metadata without the keys the run never filled. */
+function compact(metadata: Record<string, unknown>): Record<string, unknown> {
+  return Object.fromEntries(Object.entries(metadata).filter(([, value]) => value !== undefined))
+}
 
 export function registerTradingTools(ctx: Plugin.Context, editor: ToolEditor): void {
   const config = readConfig(ctx.options)
@@ -72,8 +90,8 @@ export function registerTradingTools(ctx: Plugin.Context, editor: ToolEditor): v
     options: { namespace: "trading", codemode: true },
     execute: async (raw, context) => {
       const input = (raw ?? {}) as AnalyzeInput
-      const progress = async (message: string): Promise<void> => {
-        await context.progress({ status: message })
+      const progress = async (event: ProgressEvent): Promise<void> => {
+        await context.progress({ status: event.message, ...progressMetadata(event) })
       }
       try {
         await assertWorkerPermission(ctx, context.sessionID, {
@@ -95,13 +113,20 @@ export function registerTradingTools(ctx: Plugin.Context, editor: ToolEditor): v
         })
         return {
           content: renderSummary(summary),
-          metadata: {
+          metadata: compact({
             run_id: summary.runId,
             run_dir: summary.runDir,
             calls: summary.calls,
             stages: summary.stages.length,
             warnings: summary.warnings.length,
-          },
+            ticker: summary.ticker,
+            trade_date: summary.tradeDate,
+            rating: summary.rating,
+            elapsed_ms: summary.elapsedMs,
+            stages_done: summary.stages.filter((stage) => stage.status === "ok").length,
+            report_md: summary.reportMd,
+            report_html: summary.reportHtml,
+          }),
         }
       } catch (error) {
         return {
@@ -159,8 +184,8 @@ export function registerTradingTools(ctx: Plugin.Context, editor: ToolEditor): v
     options: { namespace: "trading", codemode: true },
     execute: async (raw, context) => {
       const input = (raw ?? {}) as BacktestInput
-      const progress = async (message: string): Promise<void> => {
-        await context.progress({ status: message })
+      const progress = async (event: ProgressEvent): Promise<void> => {
+        await context.progress({ status: event.message, ...progressMetadata(event) })
       }
       try {
         await assertWorkerPermission(ctx, context.sessionID, {
@@ -181,13 +206,19 @@ export function registerTradingTools(ctx: Plugin.Context, editor: ToolEditor): v
         })
         return {
           content: renderBacktest(result),
-          metadata: {
+          metadata: compact({
             run_id: result.runId,
             sweep_dir: result.sweepDir,
+            log_path: result.logPath,
             calls: result.calls,
             cells: result.cells.length,
+            total: result.total,
+            ran: result.cells.length,
+            skipped: result.skipped,
             failed: result.cells.filter((cell) => cell.status === "failed").length,
-          },
+            elapsed_ms: result.elapsedMs,
+            warnings: result.warnings.length,
+          }),
         }
       } catch (error) {
         return {

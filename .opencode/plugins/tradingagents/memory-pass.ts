@@ -122,7 +122,10 @@ export async function settleMemory(options: MemoryPassOptions): Promise<MemoryOu
       model,
       ...options.fallbacks.filter((item) => formatModelRef(item) !== formatModelRef(model)),
     ]
-    await progress(options.hooks, `settling ${entries.length} past decision(s)`)
+    await progress(options.hooks, {
+      phase: "settle",
+      message: `settling ${entries.length} past decision(s)`,
+    })
     for (const entry of entries) {
       try {
         const result = await generateWithFallback(

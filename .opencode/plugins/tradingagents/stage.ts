@@ -48,7 +48,13 @@ async function prepareStage(
   await ensurePack(context, spec)
   throwIfAborted(context.hooks.signal)
 
-  await progress(context.hooks, `rendering ${spec.title.toLowerCase()} prompt`)
+  await progress(context.hooks, {
+    phase: "render",
+    stage: spec.stage,
+    title: spec.title,
+    group: spec.group,
+    message: `rendering ${spec.title.toLowerCase()} prompt`,
+  })
   const promptReply = await runWorker(
     { action: "prompt", runDir: context.runDir, stage },
     context.worker,
@@ -61,7 +67,13 @@ async function prepareStage(
   const promptText = await readFile(promptPath, "utf8")
 
   if (!forced && shouldSkip(context.store.value, stage, hash)) {
-    await progress(context.hooks, `${spec.title}: up to date, skipping`)
+    await progress(context.hooks, {
+      phase: "skip",
+      stage: spec.stage,
+      title: spec.title,
+      group: spec.group,
+      message: `${spec.title}: up to date, skipping`,
+    })
     await context.store.commit(stage, {
       status: "skipped",
       hash,
@@ -97,7 +109,14 @@ async function executeStage(context: RunContext, plan: StagePlan): Promise<Stage
   const title = spec.title.toLowerCase()
 
   throwIfAborted(context.hooks.signal)
-  await progress(context.hooks, `generating ${title} with ${formatModelRef(model)}`)
+  await progress(context.hooks, {
+    phase: "generate",
+    stage: spec.stage,
+    title: spec.title,
+    group: spec.group,
+    model: formatModelRef(model),
+    message: `generating ${title} with ${formatModelRef(model)}`,
+  })
 
   const candidates = [
     model,
@@ -144,7 +163,13 @@ async function executeStage(context: RunContext, plan: StagePlan): Promise<Stage
 
   for (let repair = 0; ; repair += 1) {
     await writeFile(outPath, text, "utf8")
-    await progress(context.hooks, `validating ${title} report`)
+    await progress(context.hooks, {
+      phase: "validate",
+      stage: spec.stage,
+      title: spec.title,
+      group: spec.group,
+      message: `validating ${title} report`,
+    })
     try {
       validated = await runWorker(
         { action: "validate", runDir: context.runDir, stage },
@@ -163,7 +188,15 @@ async function executeStage(context: RunContext, plan: StagePlan): Promise<Stage
       validated = null
       if (repair >= maxRepairs) break
 
-      await progress(context.hooks, `${spec.title}: repair ${repair + 1} of ${maxRepairs}`)
+      await progress(context.hooks, {
+        phase: "repair",
+        stage: spec.stage,
+        title: spec.title,
+        group: spec.group,
+        index: repair + 1,
+        total: maxRepairs,
+        message: `${spec.title}: repair ${repair + 1} of ${maxRepairs}`,
+      })
       throwIfAborted(context.hooks.signal)
       const repairPrompt = `${promptText}${REPAIR_HEADER}${lastErrors
         .map((item) => `- ${item}`)
@@ -188,7 +221,13 @@ async function executeStage(context: RunContext, plan: StagePlan): Promise<Stage
 
   if (!validated) {
     warnings.push(...(lastErrors.length ? lastErrors : ["output did not validate"]))
-    await progress(context.hooks, `${spec.title}: accepting output with a review marker`)
+    await progress(context.hooks, {
+      phase: "accept",
+      stage: spec.stage,
+      title: spec.title,
+      group: spec.group,
+      message: `${spec.title}: accepting output with a review marker`,
+    })
     validated = await runWorker(
       { action: "validate", runDir: context.runDir, stage, lenient: true },
       context.worker,
@@ -211,7 +250,13 @@ async function executeStage(context: RunContext, plan: StagePlan): Promise<Stage
     warnings,
   }
   await context.store.commit(stage, record, warnings)
-  await progress(context.hooks, `${spec.title}: done`)
+  await progress(context.hooks, {
+    phase: "done",
+    stage: spec.stage,
+    title: spec.title,
+    group: spec.group,
+    message: `${spec.title}: done`,
+  })
   const rating = typeof validated.rating === "string" ? validated.rating : undefined
   return { record, rating }
 }

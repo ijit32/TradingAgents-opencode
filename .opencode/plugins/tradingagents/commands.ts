@@ -1,10 +1,14 @@
 /**
  * The `/ta-*` commands: a line of text in, a synthetic message out.
+ *
+ * A run posts at most two chat messages — a delayed start line and one final
+ * card — so progress text stays out of chat.
  */
 
 import type { Plugin } from "@opencode/plugin"
 import type { CommandEditor } from "./editor-types"
 import { renderBacktest, runBacktest } from "./backtest"
+import { CommandReporter, type SyntheticNotice } from "./notify"
 import { parseAnalysisText, parseBacktestText, parseProbeText } from "./parse"
 import { readReport, renderSummary, runAnalysis } from "./pipeline"
 import { assertWorkerPermission } from "./permissions"
@@ -12,23 +16,26 @@ import { runProbe } from "./probe"
 import { errorMarkdown } from "./render"
 
 export function registerTaCommands(ctx: Plugin.Context, editor: CommandEditor): void {
+  const send = (notice: SyntheticNotice): Promise<unknown> | unknown =>
+    ctx.session.synthetic?.(notice) ?? Promise.resolve()
+
   editor.add({
     name: "ta-analyze",
     description:
       "Run the TradingAgents pipeline: /ta-analyze NVDA 2026-10-23 [--depth 2] [--model provider/model]",
     execute: async ({ sessionID, prompt }) => {
-      const input = parseAnalysisText(prompt.text ?? "")
-      const progress = async (message: string): Promise<void> => {
-        if (!ctx.session.synthetic) return
-        await ctx.session.synthetic({ sessionID, text: message })
-      }
+      let header = "TradingAgents run"
+      const reporter = new CommandReporter({ sessionID, header: () => header, send })
       try {
+        const input = parseAnalysisText(prompt.text ?? "")
+        header = `TradingAgents · ${input.ticker ?? "run"} · ${input.trade_date ?? "today"}`
         await assertWorkerPermission(ctx, sessionID)
-        await progress(`TradingAgents: starting ${input.ticker ?? "run"}…`)
-        const summary = await runAnalysis(ctx, input, { progress })
-        await progress(renderSummary(summary))
+        const summary = await runAnalysis(ctx, input, {
+          progress: (event) => reporter.event(event),
+        })
+        await reporter.finish(renderSummary(summary))
       } catch (error) {
-        await progress(errorMarkdown("TradingAgents run", error))
+        await reporter.fail("TradingAgents run", error)
       }
     },
   })
@@ -38,18 +45,19 @@ export function registerTaCommands(ctx: Plugin.Context, editor: CommandEditor): 
     description:
       "Run a sweep: /ta-backtest NVDA,AAPL 2026-01-02 2026-03-01 [--every 7] [--run-id id]",
     execute: async ({ sessionID, prompt }) => {
-      const input = parseBacktestText(prompt.text ?? "")
-      const progress = async (message: string): Promise<void> => {
-        if (!ctx.session.synthetic) return
-        await ctx.session.synthetic({ sessionID, text: message })
-      }
+      let header = "TradingAgents backtest"
+      const reporter = new CommandReporter({ sessionID, header: () => header, send })
       try {
+        const input = parseBacktestText(prompt.text ?? "")
+        const tickers = (input.tickers ?? [input.ticker]).filter(Boolean).join(", ")
+        header = `TradingAgents backtest · ${tickers || "sweep"} · ${input.start ?? ""}`
         await assertWorkerPermission(ctx, sessionID)
-        await progress(`TradingAgents backtest: ${(input.tickers ?? []).join(", ") || "sweep"}…`)
-        const result = await runBacktest(ctx, input, { progress })
-        await progress(renderBacktest(result))
+        const result = await runBacktest(ctx, input, {
+          progress: (event) => reporter.event(event),
+        })
+        await reporter.finish(renderBacktest(result))
       } catch (error) {
-        await progress(errorMarkdown("TradingAgents backtest", error))
+        await reporter.fail("TradingAgents backtest", error)
       }
     },
   })
@@ -63,11 +71,12 @@ export function registerTaCommands(ctx: Plugin.Context, editor: CommandEditor): 
       const runId = tokens.find((token) => !token.startsWith("--"))
       try {
         const view = await readReport(ctx, runId, format)
-        await ctx.session.synthetic?.({ sessionID, text: view.content })
+        await ctx.session.synthetic?.({ sessionID, text: view.content, resume: false })
       } catch (error) {
         await ctx.session.synthetic?.({
           sessionID,
           text: errorMarkdown("TradingAgents report", error),
+          resume: false,
         })
       }
     },
@@ -80,17 +89,14 @@ export function registerTaCommands(ctx: Plugin.Context, editor: CommandEditor): 
     execute: async ({ sessionID, prompt }) => {
       const { input, prompt: text } = parseProbeText(prompt.text ?? "")
       if (text) input.prompt = text
-      await ctx.session.synthetic?.({
-        sessionID,
-        text: "Running OpenCode generation probe…",
-      })
       try {
         const { report } = await runProbe(ctx, input)
-        await ctx.session.synthetic?.({ sessionID, text: report })
+        await ctx.session.synthetic?.({ sessionID, text: report, resume: false })
       } catch (error) {
         await ctx.session.synthetic?.({
           sessionID,
           text: errorMarkdown("OpenCode generation probe", error),
+          resume: false,
         })
       }
     },
